@@ -101,10 +101,24 @@ class DimockInterceptor internal constructor(
             host = url.host,
             path = url.encodedPath,
             query = query,
-            headers = request.headers.toMultimap(),
+            headers = multimap(request.headers),
             body = readRequestBody(request, engine.config.maxBodyBytes),
             bodyContentType = request.body?.contentType()?.toString(),
         )
+    }
+
+    /**
+     * Headers grouped by name, in the order they appear, keeping the casing they were actually sent or
+     * received with. OkHttp's own `Headers.toMultimap()` lowercases every key, which would break the
+     * `"requestHeaders": { "Authorization": [...] }` shape documented in docs/wire-protocol.md - and with it
+     * the redaction contract as adopters read it.
+     */
+    private fun multimap(headers: Headers): Map<String, List<String>> {
+        val out = LinkedHashMap<String, MutableList<String>>(headers.size)
+        for (i in 0 until headers.size) {
+            out.getOrPut(headers.name(i)) { ArrayList(1) }.add(headers.value(i))
+        }
+        return out
     }
 
     private fun readRequestBody(request: Request, limit: Int): String? {
@@ -166,7 +180,7 @@ class DimockInterceptor internal constructor(
             requestHeaders = snapshot.headers,
             requestBody = requestBody,
             responseCode = response?.code,
-            responseHeaders = response?.headers?.toMultimap() ?: emptyMap(),
+            responseHeaders = response?.headers?.let(::multimap) ?: emptyMap(),
             responseBody = responseBody,
             error = error,
             mocked = mocked,

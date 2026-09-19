@@ -23,6 +23,28 @@ class RedactorTest {
     }
 
     @Test
+    fun `a configured header name is matched whatever case it arrived in`() {
+        val out = redactor.headers(
+            mapOf(
+                "Authorization" to listOf("Bearer a"),
+                "authorization" to listOf("Bearer b"),
+                "AUTHORIZATION" to listOf("Bearer c"),
+                "Set-cookie" to listOf("sid=1"),
+                "x-SESSION" to listOf("s1"),
+                "Accept" to listOf("*/*"),
+            ),
+        )
+        assertEquals(listOf(Redactor.MASK), out["Authorization"])
+        assertEquals(listOf(Redactor.MASK), out["authorization"])
+        assertEquals(listOf(Redactor.MASK), out["AUTHORIZATION"])
+        assertEquals(listOf(Redactor.MASK), out["Set-cookie"])
+        assertEquals(listOf(Redactor.MASK), out["x-SESSION"])
+        assertEquals(listOf("*/*"), out["Accept"])
+        assertEquals(setOf("Authorization", "authorization", "AUTHORIZATION", "Set-cookie", "x-SESSION", "Accept"), out.keys)
+        assertFalse(out.toString().contains("Bearer"))
+    }
+
+    @Test
     fun `custom header list is honoured`() {
         assertEquals(listOf(Redactor.MASK), redactor.headers(mapOf("X-Session" to listOf("abc")))["X-Session"])
     }

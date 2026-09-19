@@ -91,6 +91,36 @@ class DimockInterceptorTest {
     }
 
     @Test
+    fun `captured header names keep the casing they were sent and received with`() {
+        upstream.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setHeader("X-Trace-Id", "t-1")
+                .addHeader("Set-Cookie", "sid=secret-cookie")
+                .setBody("{}"),
+        )
+        val request = Request.Builder().url(url("/v1/casing"))
+            .header("Authorization", "Bearer secret-token")
+            .header("X-Request-Id", "r-1")
+            .addHeader("X-Multi", "one")
+            .addHeader("X-Multi", "two")
+            .build()
+        client.newCall(request).execute().body!!.string()
+
+        val tx = engine.captures.list().single()
+        // docs/wire-protocol.md documents requestHeaders as { "Authorization": [...], "Accept": [...] } - not lowercased.
+        assertEquals(listOf("«redacted»"), tx.requestHeaders["Authorization"])
+        assertEquals(listOf("r-1"), tx.requestHeaders["X-Request-Id"])
+        assertEquals(listOf("one", "two"), tx.requestHeaders["X-Multi"])
+        assertNull("request header names must not be lowercased", tx.requestHeaders["x-request-id"])
+
+        assertEquals(listOf("t-1"), tx.responseHeaders["X-Trace-Id"])
+        assertEquals(listOf("«redacted»"), tx.responseHeaders["Set-Cookie"])
+        assertNull("response header names must not be lowercased", tx.responseHeaders["x-trace-id"])
+        assertFalse(tx.toString().contains("secret-cookie"))
+    }
+
+    @Test
     fun `priority 10 beats 0 and equal priority goes to the most recent`() {
         engine.rules.upsert(rule("low", status = 500, priority = 0))
         engine.rules.upsert(rule("high", status = 503, priority = 10))
