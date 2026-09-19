@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.yudistirosaputro.dimock.okhttp.Dimock
+import com.yudistirosaputro.dimock.okhttp.InspectorTheme
 import com.yudistirosaputro.dimock.ui.notification.DimockNotification
 import com.yudistirosaputro.dimock.ui.screens.AgentScreen
 import com.yudistirosaputro.dimock.ui.screens.CurlSheet
@@ -66,7 +68,12 @@ class DimockInspectorActivity : ComponentActivity() {
             return
         }
         val startTab = intent.getStringExtra(EXTRA_TAB) ?: Routes.TRAFFIC
-        setContent { DimockTheme { InspectorApp(viewModel, startTab, ::copyToClipboard, ::share) } }
+        setContent {
+            // Resolved inside the composition: `System` reads uiMode, so a night-mode change recomposes the whole panel.
+            DimockTheme(darkTheme = isDarkTheme(Dimock.config?.inspectorTheme)) {
+                InspectorApp(viewModel, startTab, ::copyToClipboard, ::share)
+            }
+        }
     }
 
     override fun onResume() {
@@ -95,6 +102,14 @@ class DimockInspectorActivity : ComponentActivity() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .apply { tab?.let { putExtra(EXTRA_TAB, it) } }
     }
+}
+
+/** `Dimock.Config.inspectorTheme` → the flag `DimockTheme` takes. No config yet (or `System`) follows the device. */
+@Composable
+private fun isDarkTheme(theme: InspectorTheme?): Boolean = when (theme ?: InspectorTheme.System) {
+    InspectorTheme.System -> isSystemInDarkTheme()
+    InspectorTheme.Dark -> true
+    InspectorTheme.Light -> false
 }
 
 private object Routes {

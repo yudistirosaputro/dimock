@@ -89,7 +89,7 @@ object LocalPresets {
     private fun rule(tx: Transaction, effect: String, respond: Respond? = null, fail: Fail? = null): MockRule =
         MockRule(
             id = ruleId(tx),
-            name = "${tx.method} ${tx.path} → $effect",
+            name = "${tx.method.uppercase()} ${tx.path} → $effect",
             enabled = true,
             priority = PRIORITY,
             match = Match(method = tx.method, path = tx.path),

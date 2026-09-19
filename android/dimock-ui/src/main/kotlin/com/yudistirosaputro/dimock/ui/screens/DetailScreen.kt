@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.sp
 import com.yudistirosaputro.dimock.core.engine.BodyFormat
 import com.yudistirosaputro.dimock.core.engine.BodyView
 import com.yudistirosaputro.dimock.core.engine.Labels
+import com.yudistirosaputro.dimock.core.engine.LocalPresets
+import com.yudistirosaputro.dimock.core.model.Body
 import com.yudistirosaputro.dimock.ui.DetailUi
 import com.yudistirosaputro.dimock.ui.HeaderLine
 import com.yudistirosaputro.dimock.ui.SectionUi
@@ -317,3 +319,110 @@ private fun Actions(onCurl: () -> Unit, onMockThis: () -> Unit) {
 
 private const val MAX_RENDERED_CHARS = 200 * 1024
 private const val MATCH_MARGIN_PX = 160f
+
+// ---- previews ---------------------------------------------------------------------------------------------
+
+/** The capture limit the engine ships with; what [DetailUi] measures a truncated body against. */
+private const val PREVIEW_MAX_BODY_BYTES = 1024 * 1024
+
+/** A 2.3 MB catalogue export the device cut at the body limit, mid-token, exactly as the ring buffer does. */
+private val previewTruncatedBody = Body.Truncated(
+    text = buildString {
+        append("""{"generatedAt":"2026-09-19T09:38:00Z","total":18422,"charts":[""")
+        repeat(6) { i ->
+            append("""{"id":${9000 + i},"sheet":"NC-${412 + i}","title":"North coast approaches, sheet ${412 + i}","scale":75000},""")
+        }
+        append("""{"id":9006,"sheet":"NC-418","title":"North coast approaches, sh""")
+    },
+    totalBytes = 2_412_889,
+    contentType = "application/json",
+)
+
+/** 200 · the plain read every other fixture is measured against. Carries a masked Authorization header. */
+private val previewDetailOk = DetailUi.from(
+    previewTx(
+        "tx-01", PREVIEW_T0, 241, "GET", "/posts",
+        code = 200,
+        responseBody = previewJson("""{"userId":3,"id":41,"title":"Winter ferry timetable changes","body":"The 06:15 sailing is withdrawn from 2 November; the 07:40 runs daily.","tags":["transport","schedule"]}"""),
+    ),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+/** Served by a local rule, five seconds late: accent banner, the rule name, and the delay it injected. */
+private val previewDetailMocked = run {
+    val tx = previewTx(
+        "tx-07", PREVIEW_T0 + 5_200, 5_004, "GET", "/posts/41",
+        code = 200,
+        responseBody = previewJson("""{"userId":3,"id":41,"title":"Winter ferry timetable changes","updatedAt":"2026-09-18T16:22:04Z"}"""),
+        mocked = true,
+        mockRuleId = "local:get-posts-41",
+    )
+    DetailUi.from(tx, LocalPresets.slow(tx, 5_000), PREVIEW_MAX_BODY_BYTES)
+}
+
+/** A real transport failure — nothing dimock did. No response at all, so the hero reads ERR in 5xx red. */
+private val previewDetailFailed = DetailUi.from(
+    previewTx(
+        "tx-06", PREVIEW_T0 + 4_900, 8_412, "GET", "/photos/8912/thumbnail.png",
+        code = null,
+        requestHeaders = mapOf(
+            "Accept" to listOf("image/webp,image/png,*/*"),
+            "User-Agent" to listOf("Northwind/2.4.1 (Android 15; Pixel 8)"),
+        ),
+        responseHeaders = emptyMap(),
+        error = "java.net.SocketException: Connection reset by peer",
+    ),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+/** Body cut at the capture limit: the note under the code block says where it stopped. */
+private val previewDetailTruncated = DetailUi.from(
+    previewTx("tx-08", PREVIEW_T0 + 5_600, 2_310, "GET", "/charts/export", code = 200, responseBody = previewTruncatedBody),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+/** Binary body: metadata only, and no Raw/Pretty pair because there is nothing to format. */
+private val previewDetailBinary = DetailUi.from(
+    previewTx(
+        "tx-09", PREVIEW_T0 + 5_800, 96, "GET", "/photos/8913/thumbnail.png",
+        code = 200,
+        requestHeaders = mapOf("Accept" to listOf("image/webp,image/png,*/*")),
+        responseHeaders = mapOf("Content-Type" to listOf("image/png"), "ETag" to listOf("\"7c1f-59a2\"")),
+        responseBody = Body.Binary(totalBytes = 1_248_204, contentType = "image/png"),
+    ),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+@InspectorPreviews
+@Composable
+private fun DetailOkPreview() = PreviewPanel {
+    DetailScreen(ui = previewDetailOk, onBack = {}, onOpenRule = {}, onCopy = {}, onCurl = {}, onMockThis = {})
+}
+
+@InspectorPreviews
+@Composable
+private fun DetailMockedPreview() = PreviewPanel {
+    DetailScreen(ui = previewDetailMocked, onBack = {}, onOpenRule = {}, onCopy = {}, onCurl = {}, onMockThis = {})
+}
+
+@InspectorPreviews
+@Composable
+private fun DetailTransportFailurePreview() = PreviewPanel {
+    DetailScreen(ui = previewDetailFailed, onBack = {}, onOpenRule = {}, onCopy = {}, onCurl = {}, onMockThis = {})
+}
+
+@InspectorPreviews
+@Composable
+private fun DetailTruncatedBodyPreview() = PreviewPanel {
+    DetailScreen(ui = previewDetailTruncated, onBack = {}, onOpenRule = {}, onCopy = {}, onCurl = {}, onMockThis = {})
+}
+
+@InspectorPreviews
+@Composable
+private fun DetailBinaryBodyPreview() = PreviewPanel {
+    DetailScreen(ui = previewDetailBinary, onBack = {}, onOpenRule = {}, onCopy = {}, onCurl = {}, onMockThis = {})
+}

@@ -154,3 +154,123 @@ private fun TrafficRowItem(row: TrafficRow, onClick: () -> Unit) {
     }
     Hairline()
 }
+
+// ---- previews ---------------------------------------------------------------------------------------------
+
+/**
+ * One afternoon of traffic from a small reading app, frozen so a preview never shifts between renders: a plain
+ * read, a write, a 404, a struggling upstream, a call answered on the device in 3 ms, and a socket that died.
+ * Newest first, the way the capture store hands them over.
+ */
+private val previewTrafficRows = listOf(
+    TrafficRow.from(
+        previewTx(
+            "tx-06", PREVIEW_T0 + 4_900, 8_412, "GET", "/photos/8912/thumbnail.png",
+            code = null,
+            responseHeaders = emptyMap(),
+            error = "java.net.SocketException: Connection reset by peer",
+        ),
+        null,
+    ),
+    TrafficRow.from(
+        previewTx(
+            "tx-05", PREVIEW_T0 + 4_300, 3, "GET", "/comments", query = "?postId=41",
+            code = 200,
+            responseBody = previewJson("[]"),
+            mocked = true,
+            mockRuleId = "local:get-comments",
+        ),
+        "GET /comments → empty []",
+    ),
+    TrafficRow.from(
+        previewTx(
+            "tx-04", PREVIEW_T0 + 2_400, 1_842, "GET", "/users/7/albums",
+            code = 500,
+            responseBody = previewJson("""{"error":"upstream_unavailable","requestId":"b4f1c0a2","retryAfter":30}"""),
+        ),
+        null,
+    ),
+    TrafficRow.from(
+        previewTx(
+            "tx-03", PREVIEW_T0 + 2_050, 112, "GET", "/posts/9001",
+            code = 404,
+            responseBody = previewJson("""{"error":"not_found","resource":"post","id":9001}"""),
+        ),
+        null,
+    ),
+    TrafficRow.from(
+        previewTx(
+            "tx-02", PREVIEW_T0 + 1_100, 388, "POST", "/comments",
+            code = 201,
+            requestBody = previewJson("""{"postId":41,"body":"Does the 07:40 still call at Lerwick?"}"""),
+            responseBody = previewJson("""{"id":501,"userId":3,"postId":41,"createdAt":"2026-09-19T09:41:07Z"}"""),
+        ),
+        null,
+    ),
+    TrafficRow.from(
+        previewTx(
+            "tx-01", PREVIEW_T0, 241, "GET", "/posts",
+            code = 200,
+            responseBody = previewJson("""[{"userId":3,"id":41,"title":"Winter ferry timetable changes"},{"userId":3,"id":42,"title":"Reading room closed for rewiring"}]"""),
+        ),
+        null,
+    ),
+)
+
+private val previewTrafficState = InspectorState(app = PREVIEW_APP, rows = previewTrafficRows, totalCalls = previewTrafficRows.size)
+
+/**
+ * The callbacks are empty on purpose — a preview shows a state, it does not drive one. What the state looks
+ * like in the other theme comes from the multipreview, never from a palette named here.
+ */
+@InspectorPreviews
+@Composable
+private fun TrafficPopulatedPreview() = PreviewPanel {
+    TrafficScreen(state = previewTrafficState, onRecording = {}, onClear = {}, onSearch = {}, onFilters = {}, onOpen = {})
+}
+
+/** Nothing captured yet: "No traffic yet", and Clear is disabled because there is nothing to clear. */
+@InspectorPreviews
+@Composable
+private fun TrafficEmptyPreview() = PreviewPanel {
+    TrafficScreen(
+        state = InspectorState(app = PREVIEW_APP),
+        onRecording = {},
+        onClear = {},
+        onSearch = {},
+        onFilters = {},
+        onOpen = {},
+    )
+}
+
+/** Captures exist but the path filter and the POST chip exclude every one: "No matching calls". */
+@InspectorPreviews
+@Composable
+private fun TrafficNoMatchesPreview() = PreviewPanel {
+    TrafficScreen(
+        state = previewTrafficState.copy(
+            rows = emptyList(),
+            search = "/checkout",
+            filters = TrafficFilters(methods = setOf("POST")),
+        ),
+        onRecording = {},
+        onClear = {},
+        onSearch = {},
+        onFilters = {},
+        onOpen = {},
+    )
+}
+
+/** Paused: the dot stops pulsing, the label turns amber, and the frozen list lags the call counter. */
+@InspectorPreviews
+@Composable
+private fun TrafficPausedPreview() = PreviewPanel {
+    TrafficScreen(
+        state = previewTrafficState.copy(rows = previewTrafficRows.drop(2), recording = false),
+        onRecording = {},
+        onClear = {},
+        onSearch = {},
+        onFilters = {},
+        onOpen = {},
+    )
+}

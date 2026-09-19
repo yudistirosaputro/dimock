@@ -22,6 +22,12 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.yudistirosaputro.dimock.core.engine.LocalPresets
+import com.yudistirosaputro.dimock.core.engine.RuleEntry
+import com.yudistirosaputro.dimock.core.model.Match
+import com.yudistirosaputro.dimock.core.model.MockRule
+import com.yudistirosaputro.dimock.core.model.Respond
+import com.yudistirosaputro.dimock.core.model.RuleState
 import com.yudistirosaputro.dimock.ui.InspectorState
 import com.yudistirosaputro.dimock.ui.RuleRow
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
@@ -134,4 +140,99 @@ private fun RuleRowItem(row: RuleRow, highlighted: Boolean, onToggle: (Boolean) 
         }
     }
     Hairline()
+}
+
+// ---- previews ---------------------------------------------------------------------------------------------
+
+/** "Now" for the meta line: six seconds after the last capture, so `Labels.ago` reads the same every render. */
+private const val PREVIEW_NOW = PREVIEW_T0 + 6_000
+
+/**
+ * All three origins at once — two rules armed from the sheet, one pushed by the agent with a `times` budget
+ * left, one spent and offering Reset. That is the row set that proves the marker, the switch and the counters
+ * still read correctly side by side.
+ */
+private val previewRuleRows = listOf(
+    RuleRow.from(
+        RuleEntry(
+            LocalPresets.custom(
+                previewTx("tx-05", PREVIEW_T0 + 4_300, 3, "GET", "/comments", query = "?postId=41", code = 200, responseBody = previewJson("[]")),
+                status = 200,
+                body = "[]",
+            ),
+            RuleState(hits = 1, lastHitAt = PREVIEW_T0 + 4_300),
+            1,
+        ),
+        PREVIEW_NOW,
+    ),
+    RuleRow.from(
+        RuleEntry(
+            LocalPresets.slow(
+                previewTx("tx-07", PREVIEW_T0 + 5_200, 5_004, "GET", "/posts/41", code = 200, responseBody = previewJson("""{"id":41}""")),
+                5_000,
+            ),
+            RuleState(hits = 1, lastHitAt = PREVIEW_T0 + 5_200),
+            2,
+        ),
+        PREVIEW_NOW,
+    ),
+    // A glob path and a `times` budget: things the in-app sheet deliberately cannot author.
+    RuleRow.from(
+        RuleEntry(
+            MockRule(
+                id = "agent:session-401",
+                name = "Session token expired",
+                priority = 10,
+                match = Match(method = "POST", path = "/auth/session"),
+                times = 3,
+                respond = Respond(status = 401, headers = mapOf("Content-Type" to "application/json"), body = """{"error":"token_expired"}"""),
+            ),
+            RuleState(hits = 1, remaining = 2, lastHitAt = PREVIEW_T0 - 240_000),
+            3,
+        ),
+        PREVIEW_NOW,
+    ),
+    RuleRow.from(
+        RuleEntry(
+            MockRule(
+                id = "agent:albums-503-once",
+                name = "Albums 503, once",
+                enabled = false,
+                priority = 10,
+                match = Match(method = "GET", path = "/users/*/albums"),
+                times = 1,
+                respond = Respond(status = 503, body = """{"error":"upstream_unavailable"}"""),
+            ),
+            RuleState(hits = 1, remaining = 0, lastHitAt = PREVIEW_T0 - 900_000),
+            4,
+        ),
+        PREVIEW_NOW,
+    ),
+)
+
+@InspectorPreviews
+@Composable
+private fun MocksPopulatedPreview() = PreviewPanel {
+    MocksScreen(
+        state = InspectorState(app = PREVIEW_APP, rules = previewRuleRows, activeMocks = 3, enabledMocks = 3),
+        onToggle = { _, _ -> },
+        onReset = {},
+        onRemove = {},
+        onSetAll = {},
+        onClearAll = {},
+    )
+}
+
+/** No rules on the device: the count reads 0/0 and both bulk actions are disabled. */
+@InspectorPreviews
+@Composable
+private fun MocksEmptyPreview() = PreviewPanel {
+    MocksScreen(
+        state = InspectorState(app = PREVIEW_APP),
+        onToggle = { _, _ -> },
+        onReset = {},
+        onRemove = {},
+        onSetAll = {},
+        onClearAll = {},
+    )
 }

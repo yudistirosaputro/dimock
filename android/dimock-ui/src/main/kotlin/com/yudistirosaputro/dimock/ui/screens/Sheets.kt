@@ -52,13 +52,16 @@ data class ForceState(val preset: Preset, val status: Int = 500, val delayMs: Lo
  * Screen 3 (docs/prd.md §7.2): one-tap presets on a locked method + path, plus a Custom response editor whose
  * status and body are pre-filled from the capture. Path, method and headers are not editable here by design;
  * glob paths, `times` and sequences are authored by the agent or the CLI.
+ *
+ * [customExpanded] is the Custom row's starting state. It exists so a `@Preview` can show the editor open;
+ * on the device the row always opens by tap and this stays false.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForceStateSheet(ui: DetailUi, onApply: (ForceState) -> Unit, onDismiss: () -> Unit) {
+fun ForceStateSheet(ui: DetailUi, customExpanded: Boolean = false, onApply: (ForceState) -> Unit, onDismiss: () -> Unit) {
     var status by remember { mutableStateOf(500) }
     var delay by remember { mutableStateOf(LocalPresets.SLOW_DELAYS_MS[1]) }
-    var customOpen by remember { mutableStateOf(false) }
+    var customOpen by remember { mutableStateOf(customExpanded) }
     var customStatus by remember { mutableStateOf((ui.tx.responseCode ?: 200).toString()) }
     var customBody by remember { mutableStateOf(LocalPresets.capturedBody(ui.tx)) }
     val customStatusValid = customStatus.toIntOrNull()?.let { it in 100..599 } == true
@@ -259,4 +262,62 @@ private fun SheetHandle() {
     Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.size(width = 36.dp, height = 3.dp).background(DimockTheme.colors.control, RoundedCornerShape(2.dp)))
     }
+}
+
+// ---- previews ---------------------------------------------------------------------------------------------
+
+private const val PREVIEW_MAX_BODY_BYTES = 1024 * 1024
+
+/** A call that carried a bearer token: the cURL export has something to warn about, and the sheet says so. */
+private val previewDetailAuthed = DetailUi.from(
+    previewTx(
+        "tx-01", PREVIEW_T0, 241, "GET", "/posts", query = "?userId=3",
+        code = 200,
+        responseBody = previewJson("""[{"userId":3,"id":41,"title":"Winter ferry timetable changes"}]"""),
+    ),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+/** The same screen for a call that carried no credentials at all: the note flips to say so. */
+private val previewDetailPublic = DetailUi.from(
+    previewTx(
+        "tx-10", PREVIEW_T0 + 5_900, 187, "GET", "/posts/42",
+        code = 200,
+        requestHeaders = mapOf(
+            "Accept" to listOf("application/json"),
+            "User-Agent" to listOf("Northwind/2.4.1 (Android 15; Pixel 8)"),
+        ),
+        responseBody = previewJson("""{"userId":3,"id":42,"title":"Reading room closed for rewiring"}"""),
+    ),
+    null,
+    PREVIEW_MAX_BODY_BYTES,
+)
+
+/** Screen 3 as it opens: five presets, method and path locked to the capture, nothing expanded. */
+@InspectorPreviews
+@Composable
+private fun ForceStateCollapsedPreview() = PreviewPanel {
+    ForceStateSheet(ui = previewDetailAuthed, onApply = {}, onDismiss = {})
+}
+
+/** The one editable option, open: status and body pre-filled from the capture, Apply in place of Edit. */
+@InspectorPreviews
+@Composable
+private fun ForceStateCustomExpandedPreview() = PreviewPanel {
+    ForceStateSheet(ui = previewDetailAuthed, customExpanded = true, onApply = {}, onDismiss = {})
+}
+
+/** Screen 4 with a redacted header: the note explains what «redacted» means before anyone replays it. */
+@InspectorPreviews
+@Composable
+private fun CurlRedactedPreview() = PreviewPanel {
+    CurlSheet(ui = previewDetailAuthed, onCopy = {}, onShare = {}, onDismiss = {})
+}
+
+/** Nothing to redact on this call, so the note says that instead. */
+@InspectorPreviews
+@Composable
+private fun CurlNoCredentialsPreview() = PreviewPanel {
+    CurlSheet(ui = previewDetailPublic, onCopy = {}, onShare = {}, onDismiss = {})
 }

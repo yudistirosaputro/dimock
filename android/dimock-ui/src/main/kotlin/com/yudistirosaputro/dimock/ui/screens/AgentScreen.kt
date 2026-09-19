@@ -158,3 +158,34 @@ private fun Step(number: String, title: String, last: Boolean = false, content: 
     }
     if (last) Hairline(DimockTheme.colors.hairline)
 }
+
+// ---- previews ---------------------------------------------------------------------------------------------
+
+/** Screen 6 (docs/prd.md §7.2): the connection log once an agent has answered. Newest entry first. */
+@InspectorPreviews
+@Composable
+private fun AgentConnectedPreview() = PreviewPanel {
+    AgentScreen(
+        state = InspectorState(
+            app = PREVIEW_APP,
+            agentConnected = true,
+            agentName = "claude-code",
+            agentWriteEnabled = true,
+            activity = listOf(
+                ActivityEntry(PREVIEW_T0 + 5_200, ActivityEntry.Kind.WRITE, "Pushed 2 rules", "PUT /rules"),
+                ActivityEntry(PREVIEW_T0 + 4_100, ActivityEntry.Kind.READ, "Read 6 captures", "GET /captures?limit=50"),
+                ActivityEntry(PREVIEW_T0 - 240_000, ActivityEntry.Kind.CONNECT, "claude-code connected", "GET /hello"),
+            ),
+        ),
+        onAgentWrite = {},
+        onClearActivity = {},
+        onCopy = {},
+    )
+}
+
+/** Nothing connected and no activity yet, so the tab is still the three-step onboarding. */
+@InspectorPreviews
+@Composable
+private fun AgentOnboardingPreview() = PreviewPanel {
+    AgentScreen(state = InspectorState(app = PREVIEW_APP), onAgentWrite = {}, onClearActivity = {}, onCopy = {})
+}

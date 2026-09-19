@@ -1,5 +1,6 @@
 package com.yudistirosaputro.dimock.ui.screens
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -28,8 +30,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yudistirosaputro.dimock.core.engine.Redactor
+import com.yudistirosaputro.dimock.core.model.Body
+import com.yudistirosaputro.dimock.core.model.Transaction
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
 import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
@@ -252,3 +258,91 @@ fun Banner(text: String, color: Color, detail: String? = null, trailing: String?
 fun MarkerColumn(mocked: Boolean, color: Color = DimockTheme.colors.accentText) {
     Box(Modifier.width(DimockDimens.MARKER_WIDTH_DP.dp).fillMaxHeight().background(if (mocked) color else Color.Transparent))
 }
+
+// ---- previews ---------------------------------------------------------------------------------------------
+//
+// Each screen keeps its own previews and its own fake data at the bottom of its own file. Only the pieces three
+// or more of those files need live here, beside the atoms they already share. Everything below is `internal`:
+// it compiles into the AAR, but none of it widens the library's public API.
+
+/**
+ * Every inspector preview renders twice, once per theme.
+ *
+ * The pair works because the chain is real, not decorative: the annotation sets `Configuration.uiMode`,
+ * `isSystemInDarkTheme()` reads `LocalConfiguration` and tests `uiMode and UI_MODE_NIGHT_MASK ==
+ * UI_MODE_NIGHT_YES`, and that is exactly the default of `DimockTheme(darkTheme = ...)`. Wrapping a preview
+ * body in [PreviewPanel] is therefore enough — no preview ever names a palette.
+ */
+@Preview(name = "Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
+internal annotation class InspectorPreviews
+
+/**
+ * The theme plus the surface the Scaffold would otherwise paint. Nothing here belongs to a screen: a preview
+ * needing more setup than this would be showing off its fixture rather than the screen.
+ */
+@Composable
+internal fun PreviewPanel(content: @Composable () -> Unit) {
+    DimockTheme {
+        Box(Modifier.fillMaxSize().background(DimockTheme.colors.surface)) { content() }
+    }
+}
+
+/** The app every preview pretends to be inspecting: a small reading app against a public JSON API. */
+internal const val PREVIEW_APP = "com.northwind.reader"
+
+/** 2026-09-19 09:41:07.418 UTC, frozen: `Labels.clock` and `Labels.ago` must not drift between renders. */
+internal const val PREVIEW_T0 = 1_789_810_867_418L
+
+private const val PREVIEW_HOST = "jsonplaceholder.typicode.com"
+
+/** A call that carried a bearer token. The interceptor masked it before the capture was ever stored. */
+private val PREVIEW_AUTHED_HEADERS = mapOf(
+    "Accept" to listOf("application/json"),
+    "Accept-Language" to listOf("en-GB"),
+    "Authorization" to listOf(Redactor.MASK),
+    "X-Request-Id" to listOf("b4f1c0a2-7d3e-4a19-9c55-2f8e0d61a774"),
+)
+
+private val PREVIEW_JSON_HEADERS = mapOf(
+    "Content-Type" to listOf("application/json; charset=utf-8"),
+    "Cache-Control" to listOf("max-age=43200"),
+    "X-Powered-By" to listOf("Express"),
+)
+
+/** One capture, shaped the way the interceptor would have left it. Traffic, Detail and both sheets build on it. */
+internal fun previewTx(
+    id: String,
+    at: Long,
+    durationMs: Long?,
+    method: String,
+    path: String,
+    query: String = "",
+    code: Int?,
+    requestHeaders: Map<String, List<String>> = PREVIEW_AUTHED_HEADERS,
+    requestBody: Body? = null,
+    responseHeaders: Map<String, List<String>> = PREVIEW_JSON_HEADERS,
+    responseBody: Body? = null,
+    error: String? = null,
+    mocked: Boolean = false,
+    mockRuleId: String? = null,
+): Transaction = Transaction(
+    id = id,
+    startedAt = at,
+    durationMs = durationMs,
+    method = method,
+    url = "https://$PREVIEW_HOST$path$query",
+    host = PREVIEW_HOST,
+    path = path,
+    requestHeaders = requestHeaders,
+    requestBody = requestBody,
+    responseCode = code,
+    responseHeaders = responseHeaders,
+    responseBody = responseBody,
+    error = error,
+    mocked = mocked,
+    mockRuleId = mockRuleId,
+)
+
+/** The body shape almost every fixture uses. */
+internal fun previewJson(text: String): Body = Body.Text(text, "application/json")
