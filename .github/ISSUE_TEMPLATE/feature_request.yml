@@ -1,0 +1,17 @@
+name: Feature request
+description: Propose a change to what dimock does
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: The problem, description: "What are you trying to do that dimock makes hard today?" }
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: Proposed change, description: "Rule format, wire protocol, tool, or UI. Check the Roadmap section of the README (what is out of scope) first." }
+  - type: dropdown
+    id: side
+    attributes:
+      label: Which side
+      multiple: true
+      options: [Android library, In-app inspector, CLI / MCP, Plugin / skill, Docs]

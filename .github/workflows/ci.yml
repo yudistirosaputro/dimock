@@ -1,0 +1,33 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon :dimock-core:test :dimock-okhttp:testDebugUnitTest :dimock-okhttp-no-op:testReleaseUnitTest :dimock-ui:checkComposeOnly
+      - name: Wire-protocol contract
+        working-directory: android
+        run: |
+          ./gradlew --no-daemon :dimock-core:runDevServer -Pport=6767 > /tmp/devserver.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:6767/health >/dev/null && break; sleep 1; done
+          cat /tmp/devserver.log
+          DIMOCK_BASE_URL=http://127.0.0.1:6767 bash ../scripts/contract/run.sh
+      - name: Assemble sample (debug + release wiring)
+        working-directory: android
+        run: ./gradlew --no-daemon :sample:assembleDebug :sample:assembleRelease
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci || npm install
+      - run: npm run typecheck --if-present && npm test --if-present

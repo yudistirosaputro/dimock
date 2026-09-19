@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: { label: dimock version, placeholder: "0.1.0 (library) / 0.1.0 (npx dimock --version)" }
+    validations: { required: true }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Android library (interceptor / engine), In-app inspector (dimock-ui), CLI / MCP server, Claude Code plugin, Docs]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "Include the output of `npx dimock health --json` if the CLI/MCP is involved." }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What you expected }
+  - type: textarea
+    id: repro
+    attributes: { label: Steps to reproduce, description: "A minimal rules.yaml and the request that should have matched are the most useful. Redact captures before pasting." }
+  - type: input
+    id: env
+    attributes: { label: Environment, placeholder: "Android 14, Pixel 7 emulator, OkHttp 4.12, AGP 8.7, macOS 15, Node 22" }
