@@ -28,7 +28,6 @@ A debug-only library that captures your app's OkHttp traffic, mocks responses on
 - [Development](#development)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
-- [Release](#release)
 - [License](#license)
 
 ```
@@ -37,7 +36,7 @@ agent:  captures_list → mock_from_capture(empty) → "reload the screen"
         → mock_from_capture(error) → "reload again" → logcat_tail → mock_clear
 ```
 
-Status: **0.1.0, pre-release.** Engine, wire protocol, CLI and MCP server are tested; the Android modules are being validated on real projects. Feedback welcome.
+Status: **0.1.0-alpha01.** Engine, wire protocol, CLI and MCP server are tested; the Android modules are being validated on real projects. Feedback welcome.
 
 ## Why
 
@@ -214,10 +213,6 @@ Every behaviour is written as a Given/When/Then that doubles as a test; a change
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for expectations, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Good first issues are labelled `good first issue`.
-
-## Release
-
-`git tag v0.1.0 && git push --tags` publishes the AARs to Maven Central, the packages to npm, and creates a GitHub release. Owner-side setup (Sonatype namespace, signing key, npm token): [docs/publishing.md](docs/publishing.md).
 
 ## License
 
