@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification only. Screen text lives in the Compose code; the inspector is English-only by design. -->
+    <string name="dimock_notif_channel" translatable="false">dimock</string>
+    <string name="dimock_notif_channel_description" translatable="false">Live HTTP traffic and mock rules (debug builds only)</string>
+    <string name="dimock_notif_clear" translatable="false">Clear</string>
+    <string name="dimock_notif_disable_mocks" translatable="false">Disable mocks</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window chrome only; every pixel inside is Compose (docs/design/tokens.md). -->
+    <style name="Theme.Dimock.Inspector" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0E1012</item>
+        <item name="android:statusBarColor">#0E1012</item>
+        <item name="android:navigationBarColor">#0E1012</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

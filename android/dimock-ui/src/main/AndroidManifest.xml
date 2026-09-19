@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <activity
+            android:name="com.yudistirosaputro.dimock.ui.DimockInspectorActivity"
+            android:exported="false"
+            android:label="dimock"
+            android:launchMode="singleTop"
+            android:taskAffinity="${applicationId}.dimock"
+            android:theme="@style/Theme.Dimock.Inspector" />
+
+        <receiver
+            android:name="com.yudistirosaputro.dimock.ui.notification.DimockNotificationReceiver"
+            android:exported="false" />
+
+        <provider
+            android:name="com.yudistirosaputro.dimock.ui.DimockUiInitProvider"
+            android:authorities="${applicationId}.dimock-ui-init"
+            android:exported="false"
+            android:initOrder="80" />
+    </application>
+</manifest>
