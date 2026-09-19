@@ -1,4 +1,4 @@
-import { Session, type SessionOptions } from "@dimock/core";
+import { Session, type SessionOptions } from "../core/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { describeError, tools } from "./tools.js";
@@ -6,7 +6,7 @@ import { describeError, tools } from "./tools.js";
 export { tools, describeError, formatRule, type ToolResult } from "./tools.js";
 
 export const SERVER_NAME = "dimock";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.1.0-alpha01";
 
 /** Build the MCP server; every tool is a thin wrapper over the shared Session. */
 export function createMcpServer(options: SessionOptions = {}): McpServer {

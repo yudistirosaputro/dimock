@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { promisify } from "node:util";
-import { FakeWire } from "../../../core/src/__tests__/fake-wire.js";
+import { FakeWire } from "../../core/__tests__/fake-wire.js";
 import { writeAgentFiles } from "../init.js";
 
 const exec = promisify(execFile);
-const BIN = join(import.meta.dirname, "..", "..", "dist", "bin.js");
+const BIN = join(import.meta.dirname, "..", "..", "..", "dist", "cli", "bin.js");
 
 let fake: FakeWire;
 let baseUrl: string;

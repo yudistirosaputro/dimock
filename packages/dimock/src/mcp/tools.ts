@@ -1,4 +1,4 @@
-import { AmbiguousTargetError, DimockError, type Rule, Session, type TargetSpec, VARIANTS } from "@dimock/core";
+import { AmbiguousTargetError, DimockError, type Rule, Session, type TargetSpec, VARIANTS } from "../core/index.js";
 import { z } from "zod";
 
 /**

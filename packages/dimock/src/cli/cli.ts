@@ -1,5 +1,5 @@
-import { Session } from "@dimock/core";
-import { describeError, runStdio, tools, type ToolResult } from "@dimock/mcp";
+import { Session } from "../core/index.js";
+import { describeError, runStdio, tools, type ToolResult } from "../mcp/index.js";
 import { Command } from "commander";
 import { writeAgentFiles } from "./init.js";
 
@@ -10,7 +10,7 @@ import { writeAgentFiles } from "./init.js";
 export function buildProgram(io: { out: (s: string) => void; err: (s: string) => void } = { out: console.log, err: console.error }): Command {
   const program = new Command("dimock")
     .description("Agent-native Android HTTP inspector and mock injector")
-    .version("0.1.0")
+    .version("0.1.0-alpha01")
     .option("-d, --device <serial>", "adb serial (or unique substring)")
     .option("-a, --app <package>", "application id (or unique substring)")
     .option("-p, --port <port>", "device-side wire port (default 6767)", (v) => Number.parseInt(v, 10))

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { Adb } from "@dimock/core";
-import { FakeWire } from "../../../core/src/__tests__/fake-wire.js";
+import { Adb } from "../../core/index.js";
+import { FakeWire } from "../../core/__tests__/fake-wire.js";
 import { createMcpServer } from "../index.js";
 import { tools } from "../tools.js";
 
