@@ -1,0 +1,29 @@
+{
+  "name": "@dimock/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test --import tsx 'src/__tests__/**/*.test.ts'"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yudistirosaputro/dimock",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist"
+  ]
+}

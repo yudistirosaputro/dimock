@@ -1,0 +1,30 @@
+{
+  "name": "@dimock/mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test --import tsx 'src/__tests__/**/*.test.ts'"
+  },
+  "dependencies": {
+    "@dimock/core": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yudistirosaputro/dimock",
+    "directory": "packages/mcp"
+  },
+  "files": [
+    "dist"
+  ]
+}
