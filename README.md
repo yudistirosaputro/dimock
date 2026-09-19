@@ -1,0 +1,187 @@
+<div align="center">
+
+# dimock
+
+**Agent-native HTTP inspector and mock injector for Android.**
+
+[![CI](https://github.com/yudistirosaputro/dimock/actions/workflows/ci.yml/badge.svg)](https://github.com/yudistirosaputro/dimock/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.yudistirosaputro/dimock-okhttp?label=maven%20central)](https://central.sonatype.com/search?q=io.github.yudistirosaputro.dimock)
+[![npm](https://img.shields.io/npm/v/dimock?label=npm)](https://www.npmjs.com/package/dimock)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Android minSdk 21](https://img.shields.io/badge/minSdk-21-3DDC84?logo=android&logoColor=white)](android/gradle/libs.versions.toml)
+[![MCP](https://img.shields.io/badge/MCP-server-000)](docs/agents.md)
+
+A debug-only library that captures your app's OkHttp traffic, mocks responses on the device, and exposes both over a local HTTP/JSON protocol so a coding agent (Claude Code, Cursor, Codex, or plain `curl`) can read what the app sent and inject mocks to drive every UI state without touching a backend.
+
+*Chucker shows a human what happened. dimock lets a human and an agent decide what happens next.*
+
+</div>
+
+## Table of contents
+
+- [Why](#why)
+- [Quick start](#quick-start)
+- [Concepts](#concepts)
+- [Security and privacy](#security-and-privacy)
+- [Repository layout](#repository-layout)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Release](#release)
+- [License](#license)
+
+```
+you:    "capture the posts call, then show me the empty and error states"
+agent:  captures_list → mock_from_capture(empty) → "reload the screen"
+        → mock_from_capture(error) → "reload again" → logcat_tail → mock_clear
+```
+
+Status: **0.1.0, pre-release.** Engine, wire protocol, CLI and MCP server are tested; the Android modules are being validated on real projects. Feedback welcome.
+
+## Why
+
+| | Chucker | dimock |
+|---|---|---|
+| See requests and responses on the device | yes | yes |
+| Opened from a notification, no code in your app | yes | yes — `dimock · 12 calls`, newest calls listed, tap to open; plus optional shake-to-open |
+| Force a state on a call from the phone | no | yes — *Mock this* → Status / Timeout / Connection reset / Slow in two taps, or edit the response body and status by hand |
+| Mock a response without a backend | no | yes, per endpoint, with status, delay, body, failure types, `times`, `sequence` |
+| Drive it from a coding agent | no | MCP server + CLI, one tool catalogue |
+| Derive an empty / error / slow / timeout variant from a real capture | no | `mock_from_capture` |
+| Release build | separate no-op artifact | separate no-op artifact, identical API |
+| Data leaves the device | no | no (loopback only, no telemetry) |
+
+## Quick start
+
+**1. Gradle** (app module)
+
+```kotlin
+debugImplementation("io.github.yudistirosaputro:dimock-ui:0.1.0")            // interceptor + in-app inspector
+releaseImplementation("io.github.yudistirosaputro:dimock-okhttp-no-op:0.1.0") // same API, does nothing
+```
+
+No Compose in the app? Use `dimock-okhttp` instead of `dimock-ui`.
+
+**2. One line** where the `OkHttpClient` is built
+
+```kotlin
+import com.yudistirosaputro.dimock.okhttp.Dimock
+
+OkHttpClient.Builder()
+    .addInterceptor(Dimock.interceptor())   // first application interceptor
+    .build()
+```
+
+A `ContentProvider` starts the engine and the loopback wire server (port 6767) in debug builds; the release artifact contains nothing. Opt out of auto-start with `<meta-data android:name="com.yudistirosaputro.dimock.AUTO_INIT" android:value="false"/>` and call `Dimock.init(context, Dimock.Config(...))` yourself; change the port with `com.yudistirosaputro.dimock.PORT`.
+
+**3. Connect an agent**
+
+```bash
+# Claude Code (plugin: MCP server + /dimock skill)
+claude plugin marketplace add yudistirosaputro/dimock
+claude plugin install dimock@dimock
+
+# Cursor, Codex, anything reading AGENTS.md
+npx dimock init
+
+# Any terminal
+npx dimock connect --app com.your.app
+npx dimock capture list
+npx dimock mock from <captureId> empty
+```
+
+**4. Look at it on the device.** Pull down the notification — `dimock · 12 calls`, the newest calls listed — and tap it, like Chucker. On Android 13+ request `POST_NOTIFICATIONS` once (the sample shows the one line). Without the permission: `Dimock.launch(context)` from a debug menu, or shake the phone with `<meta-data android:name="com.yudistirosaputro.dimock.SHAKE_TO_OPEN" android:value="true" />` (or `Config(shakeToOpen = true)`).
+
+## Concepts
+
+**Rule.** Which requests to catch and what to do instead of the network. Written in YAML or JSON by the agent or the CLI; the device stores and matches them.
+
+```yaml
+- id: login-error
+  match: { method: POST, path: /v1/auth/login }
+  times: 1                       # once, then the rule is spent
+  respond: { status: 500, body: '{"error":"internal"}', delayMs: 800 }
+
+- id: orders-recover
+  match: { path: "/v1/orders**" }
+  sequence:                      # first call times out, the rest succeed
+    - fail: { type: timeout }
+    - respond: { status: 200, bodyFile: fixtures/orders.json }
+```
+
+Matching: method, path glob or `re:` regex, host glob, query pairs, headers, JSONPath assertions on the body (GraphQL `operationName` works). Highest `priority` wins, ties go to the most recently added rule. Failure types: `timeout`, `connection_reset`, `malformed_body`, `empty_body`. Full reference: [docs/rule-format.md](docs/rule-format.md).
+
+**Capture.** Every request through the interceptor, mocked or real, with redacted headers, bodies up to 1 MB (binary as metadata), timing, and the rule that answered it. Ring buffer in memory, 500 transactions / 50 MB by default.
+
+**Wire protocol.** Plain HTTP/1.1 + JSON on `127.0.0.1:6767`, reached through `adb forward`. `/health`, `/transactions`, `/rules`, `/agent/activity`, `/events` (SSE). Anything that can `curl` can drive dimock; the TypeScript client and the MCP server are thin layers over it. Reference: [docs/wire-protocol.md](docs/wire-protocol.md).
+
+**Agent tools** (MCP and CLI are 1:1): `devices_list`, `apps_list`, `health`, `captures_list`, `captures_get` (with a curl reproduction), `captures_clear`, `mock_list`, `mock_set`, `mock_add`, `mock_toggle`, `mock_clear`, `mock_from_capture`, `logcat_tail`, `agent_activity`. Details: [docs/agents.md](docs/agents.md).
+
+**In-app inspector** (Compose, own dark instrument-panel theme, never the host app's): **Traffic** — Recording/Paused, `Filter by path`, chips `All GET POST 2xx 4xx·5xx Mocked Failed`, rows with method, status, path, `MOCK` badge and duration; **Detail** — big status with transport wording, `Served by mock rule …` banner, Request/Response tabs with `HEADERS` and `BODY`, pretty JSON with line numbers, form bodies decoded to `key: value`, *Search in body*, **cURL** and **Mock this**; **Force a state** sheet — method and path locked, one-tap *Status* (400/401/403/404/500/503, HTTP status only, empty body) · *Timeout* · *Connection reset* · *Slow* (2/5/10 s), plus *Custom response* (status + body editor pre-filled from the capture), one rule per endpoint; **Mocks** — `METHOD path → effect`, switch, origin `local`/`agent`, counters, *Reset* when spent, long-press to remove, *Disable all* / *Clear all*; **Agent** — connection state, the per-device *Agent may change mock rules* switch, and a log of every wire call. Glob paths, header and body matching, `times` and sequences are authored by the agent or the CLI on purpose, so the in-app UI never drifts from the wire protocol. Tokens: [docs/design/tokens.md](docs/design/tokens.md).
+
+## Security and privacy
+
+- Server binds loopback only; reachable solely through `adb forward` on an authorised device.
+- No outbound connections, no telemetry, no update checks.
+- `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` redacted **before** storage; add your own header names and body regexes via `Dimock.Config`.
+- Release builds ship `dimock-okhttp-no-op`: no server, no storage, no notification, no ContentProvider (a test fails if `dimock-core` ever appears on its classpath).
+- Per-device switch turns every mutating wire call into `403 agent_write_disabled`; the Agent tab logs every read and write.
+
+Full write-up for your security review: [docs/security.md](docs/security.md).
+
+## Repository layout
+
+```
+android/
+  dimock-core/          engine: rules, matcher, capture store, redaction, wire server (pure JVM, 56 tests)
+  dimock-okhttp/        OkHttp interceptor, Dimock entry point, ContentProvider auto-init
+  dimock-okhttp-no-op/  release artifact, same API surface
+  dimock-ui/            Compose inspector + notification
+  sample/                Compose + Retrofit demo app hitting JSONPlaceholder (open source, no API key)
+packages/
+  core/                  TypeScript: adb discovery, wire client, YAML rules, capture→rule variants
+  mcp/                   MCP server (stdio) over the shared tool catalogue
+  cli/                   `dimock` CLI, `npx dimock`
+plugin/                  Claude Code plugin: .mcp.json + skills/dimock/SKILL.md
+.claude-plugin/          marketplace manifest
+docs/                    prd, wire-protocol, rule-format, security, agents, publishing, design tokens
+scripts/contract/        curl-based wire-protocol contract tests (CI and TS client share them)
+```
+
+## Development
+
+Requirements: JDK 17, Android Studio (Ladybug or newer) with an API 35 SDK, Node 22.
+
+```bash
+# Android
+cd android && ./gradlew :dimock-core:test :dimock-okhttp:testDebugUnitTest :dimock-okhttp-no-op:testReleaseUnitTest :sample:assembleDebug
+
+# TypeScript
+npm install && npm test
+
+# Wire-protocol contract against the JVM stand-in for a device
+cd android && ./gradlew :dimock-core:runDevServer &   # port 6767
+scripts/contract/run.sh
+
+# Try the CLI against that stand-in
+DIMOCK_BASE_URL=http://127.0.0.1:6767 npx --workspace packages/cli dimock health
+```
+
+Every behaviour is written as a Given/When/Then that doubles as a test; a change to behaviour changes the test first.
+
+## Roadmap
+
+- Phase 2: request breakpoints (edit a request before it leaves), device→desktop channel for a "send to agent" button in the inspector, WebSocket frame inspector with a floating overlay, HAR export, dynamic port discovery, Ktor client adapter.
+- Not planned: iOS (the wire protocol is transport-neutral on purpose, but no Swift code is on the table).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for expectations, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Good first issues are labelled `good first issue`.
+
+## Release
+
+`git tag v0.1.0 && git push --tags` publishes the AARs to Maven Central, the packages to npm, and creates a GitHub release. Owner-side setup (Sonatype namespace, signing key, npm token): [docs/publishing.md](docs/publishing.md).
+
+## License
+
+Apache 2.0. See [LICENSE](LICENSE).
