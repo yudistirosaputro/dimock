@@ -1,6 +1,6 @@
 {
   "name": "dimock",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha01",
   "description": "Capture Android HTTP traffic and inject mock responses from your agent. Drive Loading, Success, Error and Empty states without touching a backend.",
   "author": { "name": "Yudistiro Saputro" },
   "license": "Apache-2.0",

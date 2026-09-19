@@ -7,7 +7,7 @@
       "name": "dimock",
       "source": "./plugin",
       "description": "Capture an Android app's HTTP traffic and inject mock responses from your agent to drive loading, error, empty and slow states without a backend.",
-      "version": "0.1.0",
+      "version": "0.1.0-alpha01",
       "category": "testing",
       "keywords": ["android", "mock", "http", "okhttp", "chucker", "qa"]
     }

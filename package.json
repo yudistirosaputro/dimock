@@ -8,9 +8,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -b packages/core packages/mcp packages/cli",
+    "build": "tsc -b packages/dimock",
     "test": "npm run build && npm test --workspaces --if-present",
-    "typecheck": "tsc -b packages/core packages/mcp packages/cli --noEmit false",
+    "typecheck": "tsc -b packages/dimock --noEmit false",
     "contract": "bash scripts/contract/run.sh",
     "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo"
   },
