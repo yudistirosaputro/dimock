@@ -1,0 +1,26 @@
+# Gradle / Android
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/**/*.iml
+android/.kotlin/
+*.apk
+*.aab
+
+# Node
+node_modules/
+packages/**/dist/
+*.tsbuildinfo
+.npm/
+
+# dimock captures never leave the dev machine
+captures/
+*.dimock-capture
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.log

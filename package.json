@@ -1,0 +1,22 @@
+{
+  "name": "dimock-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -b packages/core packages/mcp packages/cli",
+    "test": "npm run build && npm test --workspaces --if-present",
+    "typecheck": "tsc -b packages/core packages/mcp packages/cli --noEmit false",
+    "contract": "bash scripts/contract/run.sh",
+    "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/node": "^22.15.0",
+    "tsx": "^4.20.0"
+  }
+}
