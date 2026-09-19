@@ -51,7 +51,6 @@ import com.yudistirosaputro.dimock.ui.screens.ForceStateSheet
 import com.yudistirosaputro.dimock.ui.screens.Hairline
 import com.yudistirosaputro.dimock.ui.screens.MocksScreen
 import com.yudistirosaputro.dimock.ui.screens.TrafficScreen
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
 import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
@@ -122,10 +121,10 @@ private fun InspectorApp(viewModel: InspectorViewModel, startTab: String, onCopy
     }
 
     Scaffold(
-        containerColor = DimockColors.Surface,
+        containerColor = DimockTheme.colors.surface,
         snackbarHost = {
             SnackbarHost(snackbar) { data ->
-                Snackbar(containerColor = DimockColors.SnackbarSurface, contentColor = DimockColors.SnackbarText, shape = RoundedCornerShape(4.dp)) {
+                Snackbar(containerColor = DimockTheme.colors.snackbarSurface, contentColor = DimockTheme.colors.snackbarText, shape = RoundedCornerShape(4.dp)) {
                     Text(data.visuals.message, style = DimockType.Body)
                 }
             }
@@ -194,8 +193,8 @@ private fun BottomBar(nav: NavHostController, enabledMocks: Int) {
     val current by nav.currentBackStackEntryAsState()
     val route = current?.destination?.route
     if (route == Routes.DETAIL) return
-    Column(Modifier.background(DimockColors.Surface).navigationBarsPadding()) {
-        Hairline(DimockColors.Hairline)
+    Column(Modifier.background(DimockTheme.colors.surface).navigationBarsPadding()) {
+        Hairline(DimockTheme.colors.hairline)
         Row(Modifier.fillMaxWidth().height(60.dp)) {
             Tab("Traffic", route == Routes.TRAFFIC, Modifier.weight(1f)) { nav.switchTo(Routes.TRAFFIC) }
             Tab("Mocks", route == Routes.MOCKS, Modifier.weight(1f), badge = enabledMocks.takeIf { it > 0 }?.toString()) { nav.switchTo(Routes.MOCKS) }
@@ -215,14 +214,14 @@ private fun NavHostController.switchTo(route: String) {
 @Composable
 private fun Tab(label: String, selected: Boolean, modifier: Modifier, badge: String? = null, onClick: () -> Unit) {
     Column(modifier.fillMaxSize().clickable(onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) DimockColors.Accent else DimockColors.Surface))
+        Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) DimockTheme.colors.accentText else DimockTheme.colors.surface))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Text(
                 label,
                 style = DimockType.Label.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
-                color = if (selected) DimockColors.Text else DimockColors.TextMuted,
+                color = if (selected) DimockTheme.colors.text else DimockTheme.colors.textMuted,
             )
-            if (badge != null) Text("  $badge", style = DimockType.SectionLabel, color = DimockColors.Accent)
+            if (badge != null) Text("  $badge", style = DimockType.SectionLabel, color = DimockTheme.colors.accentText)
         }
     }
 }

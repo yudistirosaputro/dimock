@@ -10,7 +10,10 @@ import com.yudistirosaputro.dimock.core.model.MockRule
 import com.yudistirosaputro.dimock.core.model.Respond
 import com.yudistirosaputro.dimock.core.model.RuleState
 import com.yudistirosaputro.dimock.core.model.Transaction
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
+import com.yudistirosaputro.dimock.ui.theme.EffectTone
+import com.yudistirosaputro.dimock.ui.theme.MethodTone
+import com.yudistirosaputro.dimock.ui.theme.SecondaryTone
+import com.yudistirosaputro.dimock.ui.theme.StatusTone
 import org.junit.Test
 
 /** Wave 4 rows and detail model (docs/prd.md §10). Pure JVM: no Android framework calls. */
@@ -27,9 +30,12 @@ class DisplayModelsTest {
     fun `traffic row for a plain call`() {
         val row = TrafficRow.from(tx(), null)
         assertThat(row.method).isEqualTo("GET")
+        assertThat(row.methodTone).isEqualTo(MethodTone.READ)
         assertThat(row.status).isEqualTo("200")
+        assertThat(row.statusTone).isEqualTo(StatusTone.NEUTRAL)
         assertThat(row.statusClass).isEqualTo(2)
         assertThat(row.secondary).isEqualTo("h")
+        assertThat(row.secondaryTone).isEqualTo(SecondaryTone.HOST)
         assertThat(row.duration).isEqualTo("241 ms")
         assertThat(row.mocked).isFalse()
         assertThat(row.failed).isFalse()
@@ -39,10 +45,12 @@ class DisplayModelsTest {
     fun `mocked row names the rule, failed row shows ERR in red with the failure text`() {
         val mocked = TrafficRow.from(tx(code = 500, mocked = true), "GET /posts → 500")
         assertThat(mocked.secondary).isEqualTo("GET /posts → 500")
+        assertThat(mocked.secondaryTone).isEqualTo(SecondaryTone.RULE)
+        assertThat(mocked.statusTone).isEqualTo(StatusTone.SERVER_ERROR)
         assertThat(mocked.mocked).isTrue()
         val failed = TrafficRow.from(tx(code = null, error = "dimock: timed out after 10000 ms (rule r)", mocked = true), null)
         assertThat(failed.status).isEqualTo("ERR")
-        assertThat(failed.statusColor).isEqualTo(DimockColors.Status5xx)
+        assertThat(failed.statusTone).isEqualTo(StatusTone.SERVER_ERROR)
         assertThat(failed.failed).isTrue()
         assertThat(failed.secondary).isEqualTo("local:get-posts")
     }
@@ -62,12 +70,14 @@ class DisplayModelsTest {
     fun `rule row effect, origin and spent state`() {
         val local = RuleRow.from(RuleEntry(LocalPresets.status(tx(), 500), RuleState(), 1), now = 0)
         assertThat(local.effect).isEqualTo("500")
+        assertThat(local.effectTone).isEqualTo(EffectTone.FAILURE)
         assertThat(local.meta).containsExactly("local", "prio 100").inOrder()
         assertThat(local.spent).isFalse()
         val agent = MockRule(id = "a", name = "Login once", match = Match(method = "POST", path = "/login"), times = 1, respond = Respond(status = 401, body = "{}"))
         val spent = RuleRow.from(RuleEntry(agent.copy(enabled = false), RuleState(hits = 1, remaining = 0, lastHitAt = 0), 2), now = 120_000)
         assertThat(spent.spent).isTrue()
         assertThat(spent.effect).isEqualTo("401 · empty {}")
+        assertThat(spent.effectTone).isEqualTo(EffectTone.WARNING)
         assertThat(spent.meta).containsExactly("agent", "0 of 1 left", "1 hit", "last 2 min ago").inOrder()
     }
 
@@ -77,6 +87,7 @@ class DisplayModelsTest {
         assertThat(ui.url).isEqualTo("https://h/posts")
         assertThat(ui.query).isEqualTo("?x=1")
         assertThat(ui.transport).isEqualTo("server error")
+        assertThat(ui.statusTone).isEqualTo(StatusTone.SERVER_ERROR)
         assertThat(ui.mockRuleName).isEqualTo("GET /posts → slow")
         assertThat(ui.injectedDelay).isEqualTo("5.0 s")
         assertThat((ui.response.body as BodyView.Text).pretty).isEqualTo("{\n  \"a\": 1\n}")
@@ -85,6 +96,24 @@ class DisplayModelsTest {
         assertThat(ui.curl).startsWith("curl -X GET https://h/posts?x=1")
         assertThat(ui.curl).doesNotContain("Bearer")
         assertThat(ui.truncationNote).isNull()
+    }
+
+    @Test
+    fun `rows carry tones, never colours, so a palette swap cannot leave one stale`() {
+        assertThat(MethodTone.of("get")).isEqualTo(MethodTone.READ)
+        assertThat(MethodTone.of("post")).isEqualTo(MethodTone.WRITE)
+        assertThat(MethodTone.of("PUT")).isEqualTo(MethodTone.WRITE)
+        assertThat(MethodTone.of("PATCH")).isEqualTo(MethodTone.WRITE)
+        assertThat(MethodTone.of("delete")).isEqualTo(MethodTone.DESTRUCTIVE)
+        assertThat(MethodTone.of("HEAD")).isEqualTo(MethodTone.OTHER)
+        assertThat(StatusTone.of(null)).isEqualTo(StatusTone.SERVER_ERROR)
+        assertThat(StatusTone.of(503)).isEqualTo(StatusTone.SERVER_ERROR)
+        assertThat(StatusTone.of(404)).isEqualTo(StatusTone.CLIENT_ERROR)
+        assertThat(StatusTone.of(302)).isEqualTo(StatusTone.REDIRECT)
+        assertThat(StatusTone.of(200)).isEqualTo(StatusTone.NEUTRAL)
+        val delete = TrafficRow.from(tx().copy(method = "DELETE", responseCode = 301), null)
+        assertThat(delete.methodTone).isEqualTo(MethodTone.DESTRUCTIVE)
+        assertThat(delete.statusTone).isEqualTo(StatusTone.REDIRECT)
     }
 
     @Test

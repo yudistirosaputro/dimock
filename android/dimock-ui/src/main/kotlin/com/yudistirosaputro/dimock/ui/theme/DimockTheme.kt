@@ -1,11 +1,16 @@
 package com.yudistirosaputro.dimock.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,26 +45,61 @@ object DimockType {
     val SectionLabel = TextStyle(fontFamily = DimockFonts.Mono, fontSize = 11.sp, letterSpacing = 0.06.em)
 }
 
-private val scheme = darkColorScheme(
-    primary = DimockColors.Accent,
-    onPrimary = DimockColors.OnAccent,
-    secondary = DimockColors.TextMuted,
-    background = DimockColors.Surface,
-    onBackground = DimockColors.Text,
-    surface = DimockColors.Surface,
-    onSurface = DimockColors.Text,
-    surfaceVariant = DimockColors.SurfaceRaised,
-    onSurfaceVariant = DimockColors.TextMuted,
-    outline = DimockColors.Control,
-    outlineVariant = DimockColors.Hairline,
-    error = DimockColors.Status5xx,
-    onError = DimockColors.OnAccent,
-    surfaceContainer = DimockColors.SurfaceRaised,
-    surfaceContainerHigh = DimockColors.SurfaceRaised,
-    inverseSurface = DimockColors.SnackbarSurface,
-    inverseOnSurface = DimockColors.SnackbarText,
-    inversePrimary = DimockColors.Accent,
-)
+/**
+ * Reads the live palette: `DimockTheme.colors.text`. An object and a composable function of the same name sit
+ * side by side here exactly as `MaterialTheme` does.
+ */
+object DimockTheme {
+    val colors: DimockPalette
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalDimockPalette.current
+}
+
+/** The M3 roles the few Material primitives we use (Scaffold, ModalBottomSheet, Snackbar) read from. */
+private fun materialScheme(p: DimockPalette, dark: Boolean): ColorScheme = if (dark) {
+    darkColorScheme(
+        primary = p.accent,
+        onPrimary = p.onAccent,
+        secondary = p.textMuted,
+        background = p.surface,
+        onBackground = p.text,
+        surface = p.surface,
+        onSurface = p.text,
+        surfaceVariant = p.surfaceRaised,
+        onSurfaceVariant = p.textMuted,
+        outline = p.control,
+        outlineVariant = p.hairline,
+        error = p.status5xx,
+        onError = p.onAccent,
+        surfaceContainer = p.surfaceRaised,
+        surfaceContainerHigh = p.surfaceRaised,
+        inverseSurface = p.snackbarSurface,
+        inverseOnSurface = p.snackbarText,
+        inversePrimary = p.accent,
+    )
+} else {
+    lightColorScheme(
+        primary = p.accent,
+        onPrimary = p.onAccent,
+        secondary = p.textMuted,
+        background = p.surface,
+        onBackground = p.text,
+        surface = p.surface,
+        onSurface = p.text,
+        surfaceVariant = p.surfaceRaised,
+        onSurfaceVariant = p.textMuted,
+        outline = p.control,
+        outlineVariant = p.hairline,
+        error = p.status5xx,
+        onError = p.onAccent,
+        surfaceContainer = p.surfaceRaised,
+        surfaceContainerHigh = p.surfaceRaised,
+        inverseSurface = p.snackbarSurface,
+        inverseOnSurface = p.snackbarText,
+        inversePrimary = p.accent,
+    )
+}
 
 private val shapes = Shapes(
     extraSmall = RoundedCornerShape(2.dp),
@@ -80,6 +120,14 @@ private val typography = Typography(
 )
 
 @Composable
-fun DimockTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, shapes = shapes, typography = typography, content = content)
+fun DimockTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    val palette = if (darkTheme) DimockPalettes.Dark else DimockPalettes.Light
+    CompositionLocalProvider(LocalDimockPalette provides palette) {
+        MaterialTheme(
+            colorScheme = materialScheme(palette, darkTheme),
+            shapes = shapes,
+            typography = typography,
+            content = content,
+        )
+    }
 }

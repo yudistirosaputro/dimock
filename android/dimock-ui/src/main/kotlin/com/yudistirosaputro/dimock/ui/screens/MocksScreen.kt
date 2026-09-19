@@ -24,8 +24,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.yudistirosaputro.dimock.ui.InspectorState
 import com.yudistirosaputro.dimock.ui.RuleRow
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
+import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
 /**
@@ -47,10 +47,10 @@ fun MocksScreen(
         Text(
             "Rules armed on this device or pushed by your agent. Local rules win. Nothing here leaves the device.",
             style = DimockType.Caption,
-            color = DimockColors.TextDim,
+            color = DimockTheme.colors.textDim,
             modifier = Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).padding(bottom = 16.dp),
         )
-        Hairline(DimockColors.Hairline)
+        Hairline(DimockTheme.colors.hairline)
         if (state.rules.isEmpty()) {
             EmptyState("No mocks yet", "Open a call and tap Mock this, or push rules from your agent.")
         } else {
@@ -71,19 +71,19 @@ private fun Header(state: InspectorState, onSetAll: (Boolean) -> Unit, onClearAl
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val anyEnabled = state.enabledMocks > 0
                 OutlinedAction(if (anyEnabled) "Disable all" else "Enable all", enabled = state.rules.isNotEmpty()) { onSetAll(!anyEnabled) }
-                OutlinedAction("Clear all", color = DimockColors.Status5xx, enabled = state.rules.isNotEmpty(), onClick = onClearAll)
+                OutlinedAction("Clear all", color = DimockTheme.colors.status5xx, enabled = state.rules.isNotEmpty(), onClick = onClearAll)
             }
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 buildAnnotatedString {
                     append("${state.activeMocks}")
-                    withStyle(SpanStyle(color = DimockColors.Control)) { append("/${state.rules.size}") }
+                    withStyle(SpanStyle(color = DimockTheme.colors.control)) { append("/${state.rules.size}") }
                 },
                 style = DimockType.HeaderCount,
-                color = if (state.activeMocks > 0) DimockColors.Accent else DimockColors.TextMuted,
+                color = if (state.activeMocks > 0) DimockTheme.colors.accentText else DimockTheme.colors.textMuted,
             )
-            Text("rules active", style = DimockType.Body, color = DimockColors.TextMuted, modifier = Modifier.padding(bottom = 6.dp))
+            Text("rules active", style = DimockType.Body, color = DimockTheme.colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
         }
         Spacer(Modifier.height(0.dp))
     }
@@ -93,9 +93,9 @@ private fun Header(state: InspectorState, onSetAll: (Boolean) -> Unit, onClearAl
 @Composable
 private fun RuleRowItem(row: RuleRow, highlighted: Boolean, onToggle: (Boolean) -> Unit, onReset: () -> Unit, onRemove: () -> Unit) {
     val marker = when {
-        row.spent -> DimockColors.Status4xx
-        row.enabled -> DimockColors.Accent
-        else -> DimockColors.Hairline
+        row.spent -> DimockTheme.colors.status4xx
+        row.enabled -> DimockTheme.colors.accentText
+        else -> DimockTheme.colors.hairline
     }
     Row(
         Modifier
@@ -103,32 +103,32 @@ private fun RuleRowItem(row: RuleRow, highlighted: Boolean, onToggle: (Boolean) 
             .heightIn(min = DimockDimens.ROW_HEIGHT_DP.dp)
             .combinedClickable(onClick = { if (!row.spent) onToggle(!row.enabled) }, onLongClick = onRemove),
     ) {
-        MarkerColumn(mocked = true, color = if (highlighted) DimockColors.Text else marker)
+        MarkerColumn(mocked = true, color = if (highlighted) DimockTheme.colors.text else marker)
         Column(
             Modifier.weight(1f).padding(start = 17.dp, end = DimockDimens.GUTTER_DP.dp, top = 14.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(row.title, style = DimockType.BodyStrong, color = if (row.enabled || row.spent) DimockColors.Text else DimockColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(row.title, style = DimockType.BodyStrong, color = if (row.enabled || row.spent) DimockTheme.colors.text else DimockTheme.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         buildAnnotatedString {
-                            withStyle(SpanStyle(color = DimockColors.TextDim)) { append(row.method); append(' ') }
+                            withStyle(SpanStyle(color = DimockTheme.colors.textDim)) { append(row.method); append(' ') }
                             append(row.path)
-                            withStyle(SpanStyle(color = DimockColors.TextDim)) { append("  →  ") }
-                            withStyle(SpanStyle(color = row.effectColor)) { append(row.effect) }
+                            withStyle(SpanStyle(color = DimockTheme.colors.textDim)) { append("  →  ") }
+                            withStyle(SpanStyle(color = DimockTheme.colors.forTone(row.effectTone))) { append(row.effect) }
                         },
                         style = DimockType.MonoSmall.copy(fontSize = DimockType.MonoRow.fontSize),
-                        color = DimockColors.TextMuted,
+                        color = DimockTheme.colors.textMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (row.spent) OutlinedAction("Reset", color = DimockColors.Status4xx, onClick = onReset) else DimockSwitch(row.enabled, onToggle)
+                if (row.spent) OutlinedAction("Reset", color = DimockTheme.colors.status4xx, onClick = onReset) else DimockSwitch(row.enabled, onToggle)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 row.meta.forEach { part ->
-                    Text(part, style = DimockType.MonoSmall, color = if (row.spent && part.startsWith("0 of")) DimockColors.Status4xx else DimockColors.TextDim)
+                    Text(part, style = DimockType.MonoSmall, color = if (row.spent && part.startsWith("0 of")) DimockTheme.colors.status4xx else DimockTheme.colors.textDim)
                 }
             }
         }

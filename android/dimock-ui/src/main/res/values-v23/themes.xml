@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!--
-      Window chrome only; every pixel inside is Compose (docs/design/tokens.md).
-      This exists so the window is already the right colour before the first frame — otherwise the inspector
-      opens on a flash of the wrong background. It mirrors DimockPalettes.Light; values-night/ mirrors Dark.
-    -->
+    <!-- Dark status bar icons on the light chrome. windowLightStatusBar is API 23+, hence the qualifier. -->
     <style name="Theme.Dimock.Inspector" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#F1F3F5</item>
         <item name="android:statusBarColor">#F1F3F5</item>
         <item name="android:navigationBarColor">#F1F3F5</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

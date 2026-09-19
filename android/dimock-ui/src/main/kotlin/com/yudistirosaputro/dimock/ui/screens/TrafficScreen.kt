@@ -37,8 +37,8 @@ import com.yudistirosaputro.dimock.core.engine.Labels
 import com.yudistirosaputro.dimock.ui.InspectorState
 import com.yudistirosaputro.dimock.ui.TrafficFilters
 import com.yudistirosaputro.dimock.ui.TrafficRow
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
+import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
 /**
@@ -68,7 +68,7 @@ fun TrafficScreen(
             FilterChips(state.filters, onFilters)
         }
         Spacer(Modifier.height(12.dp))
-        Hairline(DimockColors.Hairline)
+        Hairline(DimockTheme.colors.hairline)
         when {
             state.rows.isNotEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
                 items(state.rows, key = { it.id }) { row -> TrafficRowItem(row) { onOpen(row) } }
@@ -91,10 +91,10 @@ private fun StatusBar(recording: Boolean, calls: Int, onRecording: (Boolean) -> 
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             RecordingDot(recording)
-            Text(if (recording) "Recording" else "Paused", style = DimockType.Label, color = if (recording) DimockColors.Text else DimockColors.Status4xx)
+            Text(if (recording) "Recording" else "Paused", style = DimockType.Label, color = if (recording) DimockTheme.colors.text else DimockTheme.colors.status4xx)
         }
         Spacer(Modifier.width(14.dp))
-        Text(Labels.plural(calls, "call"), style = DimockType.MonoSmall, color = DimockColors.TextMuted, modifier = Modifier.weight(1f))
+        Text(Labels.plural(calls, "call"), style = DimockType.MonoSmall, color = DimockTheme.colors.textMuted, modifier = Modifier.weight(1f))
         OutlinedAction("Clear", enabled = calls > 0, onClick = onClear)
     }
 }
@@ -107,7 +107,7 @@ private fun RecordingDot(recording: Boolean) {
         Modifier
             .size(8.dp)
             .alpha(if (recording) alpha else 1f)
-            .background(if (recording) DimockColors.Accent else DimockColors.TextDim, RoundedCornerShape(2.dp)),
+            .background(if (recording) DimockTheme.colors.accentText else DimockTheme.colors.textDim, RoundedCornerShape(2.dp)),
     )
 }
 
@@ -130,6 +130,7 @@ private fun FilterChips(filters: TrafficFilters, onFilters: (TrafficFilters) -> 
 /** 68 dp row: accent edge when mocked · method · status · path + second line · duration. */
 @Composable
 private fun TrafficRowItem(row: TrafficRow, onClick: () -> Unit) {
+    val colors = DimockTheme.colors
     Row(Modifier.fillMaxWidth().heightIn(min = DimockDimens.ROW_HEIGHT_DP.dp).clickable(onClick = onClick)) {
         MarkerColumn(row.mocked)
         Row(
@@ -138,17 +139,17 @@ private fun TrafficRowItem(row: TrafficRow, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(Modifier.width(46.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.status, style = DimockType.MonoRow.copy(fontWeight = FontWeight.SemiBold), color = row.statusColor)
-                Text(row.method, style = DimockType.MockTag, color = row.methodColor)
+                Text(row.status, style = DimockType.MonoRow.copy(fontWeight = FontWeight.SemiBold), color = colors.forTone(row.statusTone))
+                Text(row.method, style = DimockType.MockTag, color = colors.forTone(row.methodTone))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.path, style = DimockType.MonoRow, color = DimockColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(row.path, style = DimockType.MonoRow, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (row.mocked) MockTag()
-                    Text(row.secondary, style = DimockType.Caption, color = row.secondaryColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(row.secondary, style = DimockType.Caption, color = colors.forTone(row.secondaryTone), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Text(row.duration, style = DimockType.MonoSmall, color = DimockColors.TextMuted)
+            Text(row.duration, style = DimockType.MonoSmall, color = colors.textMuted)
         }
     }
     Hairline()

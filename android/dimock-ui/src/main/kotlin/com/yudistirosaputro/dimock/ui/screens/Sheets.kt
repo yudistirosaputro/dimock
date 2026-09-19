@@ -1,8 +1,8 @@
 package com.yudistirosaputro.dimock.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -41,8 +41,8 @@ import com.yudistirosaputro.dimock.core.engine.Labels
 import com.yudistirosaputro.dimock.core.engine.LocalPresets
 import com.yudistirosaputro.dimock.core.engine.Preset
 import com.yudistirosaputro.dimock.ui.DetailUi
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
+import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
 /** What the sheet hands back: the preset plus the parameters it may carry. */
@@ -65,24 +65,24 @@ fun ForceStateSheet(ui: DetailUi, onApply: (ForceState) -> Unit, onDismiss: () -
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DimockColors.SurfaceRaised,
-        contentColor = DimockColors.Text,
+        containerColor = DimockTheme.colors.surfaceRaised,
+        contentColor = DimockTheme.colors.text,
         shape = RoundedCornerShape(topStart = DimockDimens.RADIUS_SHEET_DP.dp, topEnd = DimockDimens.RADIUS_SHEET_DP.dp),
         dragHandle = { SheetHandle() },
     ) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = DimockDimens.GUTTER_DP.dp).navigationBarsPadding()) {
-            Text("Force a state", style = DimockType.SheetTitle, color = DimockColors.Text)
+            Text("Force a state", style = DimockType.SheetTitle, color = DimockTheme.colors.text)
             Spacer(Modifier.height(6.dp))
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(color = DimockColors.Text)) { append(ui.method); append(' '); append(ui.tx.path) }
-                    withStyle(SpanStyle(color = DimockColors.TextDim)) { append(" · exact path, same method") }
+                    withStyle(SpanStyle(color = DimockTheme.colors.text)) { append(ui.method); append(' '); append(ui.tx.path) }
+                    withStyle(SpanStyle(color = DimockTheme.colors.textDim)) { append(" · exact path, same method") }
                 },
                 style = DimockType.MonoSmall,
-                color = DimockColors.TextMuted,
+                color = DimockTheme.colors.textMuted,
             )
             Spacer(Modifier.height(16.dp))
-            Hairline(DimockColors.Hairline)
+            Hairline(DimockTheme.colors.hairline)
 
             PresetRow(Preset.STATUS, onApply = { onApply(ForceState(Preset.STATUS, status = status)) }) {
                 ChipRow(LocalPresets.STATUS_CHIPS.map { it.toString() }, selected = status.toString()) { status = it.toInt() }
@@ -108,7 +108,7 @@ fun ForceStateSheet(ui: DetailUi, onApply: (ForceState) -> Unit, onDismiss: () -
             Text(
                 "One rule per endpoint: applying another option here replaces this one. Glob paths, header matches, times and sequences are authored by your agent or the CLI.",
                 style = DimockType.Caption,
-                color = DimockColors.TextDim,
+                color = DimockTheme.colors.textDim,
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -119,14 +119,14 @@ fun ForceStateSheet(ui: DetailUi, onApply: (ForceState) -> Unit, onDismiss: () -
 private fun PresetRow(preset: Preset, onApply: () -> Unit, last: Boolean = false, chips: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(preset.title, style = DimockType.BodyStrong, color = DimockColors.Text)
-            Text(preset.description, style = DimockType.Caption, color = DimockColors.TextMuted)
+            Text(preset.title, style = DimockType.BodyStrong, color = DimockTheme.colors.text)
+            Text(preset.description, style = DimockType.Caption, color = DimockTheme.colors.textMuted)
             if (chips != null) {
                 Spacer(Modifier.height(6.dp))
                 chips()
             }
         }
-        OutlinedAction("Apply", color = DimockColors.Accent, onClick = onApply)
+        OutlinedAction("Apply", color = DimockTheme.colors.accentText, onClick = onApply)
     }
     if (!last) Hairline()
 }
@@ -147,10 +147,10 @@ private fun CustomRow(
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(Preset.CUSTOM.title, style = DimockType.BodyStrong, color = DimockColors.Text)
-                Text(Preset.CUSTOM.description, style = DimockType.Caption, color = DimockColors.TextMuted)
+                Text(Preset.CUSTOM.title, style = DimockType.BodyStrong, color = DimockTheme.colors.text)
+                Text(Preset.CUSTOM.description, style = DimockType.Caption, color = DimockTheme.colors.textMuted)
             }
-            if (open) OutlinedAction("Apply", color = DimockColors.Accent, enabled = statusValid, onClick = onApply)
+            if (open) OutlinedAction("Apply", color = DimockTheme.colors.accentText, enabled = statusValid, onClick = onApply)
             else OutlinedAction("Edit", onClick = onToggle)
         }
         if (!open) return@Column
@@ -160,8 +160,8 @@ private fun CustomRow(
                 Modifier
                     .width(88.dp)
                     .height(40.dp)
-                    .background(DimockColors.Surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .border(1.dp, if (statusValid) DimockColors.Hairline else DimockColors.Status5xx, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                    .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                    .border(1.dp, if (statusValid) DimockTheme.colors.hairline else DimockTheme.colors.status5xx, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
@@ -169,34 +169,34 @@ private fun CustomRow(
                     value = status,
                     onValueChange = onStatus,
                     singleLine = true,
-                    textStyle = DimockType.MonoRow.copy(color = DimockColors.forStatus(status.toIntOrNull())),
-                    cursorBrush = SolidColor(DimockColors.Accent),
+                    textStyle = DimockType.MonoRow.copy(color = DimockTheme.colors.forStatus(status.toIntOrNull())),
+                    cursorBrush = SolidColor(DimockTheme.colors.accentText),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
             }
-            Text(Labels.transport(status.toIntOrNull(), null).takeIf { statusValid } ?: "100–599", style = DimockType.Caption, color = DimockColors.TextDim)
+            Text(Labels.transport(status.toIntOrNull(), null).takeIf { statusValid } ?: "100–599", style = DimockType.Caption, color = DimockTheme.colors.textDim)
             Spacer(Modifier.weight(1f))
-            TextAction("Reset", color = DimockColors.TextMuted, onClick = onReset)
+            TextAction("Reset", color = DimockTheme.colors.textMuted, onClick = onReset)
         }
         SectionLabel("BODY")
         Box(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 120.dp, max = 280.dp)
-                .background(DimockColors.Surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                .border(1.dp, DimockColors.Hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                .border(1.dp, DimockTheme.colors.hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
                 .padding(12.dp),
         ) {
-            if (body.isEmpty()) Text("(empty body)", style = DimockType.MonoCode, color = DimockColors.TextDim)
+            if (body.isEmpty()) Text("(empty body)", style = DimockType.MonoCode, color = DimockTheme.colors.textDim)
             BasicTextField(
                 value = body,
                 onValueChange = onBody,
-                textStyle = DimockType.MonoCode.copy(color = DimockColors.Text),
-                cursorBrush = SolidColor(DimockColors.Accent),
+                textStyle = DimockType.MonoCode.copy(color = DimockTheme.colors.text),
+                cursorBrush = SolidColor(DimockTheme.colors.accentText),
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
             )
         }
-        Text("Headers and content type stay as captured. Body is sent verbatim — JSON is not validated.", style = DimockType.Caption, color = DimockColors.TextDim)
+        Text("Headers and content type stay as captured. Body is sent verbatim — JSON is not validated.", style = DimockType.Caption, color = DimockTheme.colors.textDim)
     }
 }
 
@@ -216,23 +216,23 @@ private fun ChipRow(options: List<String>, selected: String, onSelect: (String) 
 fun CurlSheet(ui: DetailUi, onCopy: (String) -> Unit, onShare: (String) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DimockColors.SurfaceRaised,
-        contentColor = DimockColors.Text,
+        containerColor = DimockTheme.colors.surfaceRaised,
+        contentColor = DimockTheme.colors.text,
         shape = RoundedCornerShape(topStart = DimockDimens.RADIUS_SHEET_DP.dp, topEnd = DimockDimens.RADIUS_SHEET_DP.dp),
         dragHandle = { SheetHandle() },
     ) {
         Column(Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).navigationBarsPadding()) {
-            Text("Share as cURL", style = DimockType.SheetTitle, color = DimockColors.Text)
+            Text("Share as cURL", style = DimockType.SheetTitle, color = DimockTheme.colors.text)
             Spacer(Modifier.height(14.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .background(DimockColors.Surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .border(1.dp, DimockColors.Hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                    .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+                    .border(1.dp, DimockTheme.colors.hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
                     .padding(14.dp)
                     .horizontalScroll(rememberScrollState()),
             ) {
-                Text(ui.curl, style = DimockType.MonoCode, color = DimockColors.Text, softWrap = false)
+                Text(ui.curl, style = DimockType.MonoCode, color = DimockTheme.colors.text, softWrap = false)
             }
             Spacer(Modifier.height(12.dp))
             Text(
@@ -242,7 +242,7 @@ fun CurlSheet(ui: DetailUi, onCopy: (String) -> Unit, onShare: (String) -> Unit,
                     "${ui.redactedHeaders.joinToString(", ")} ${if (ui.redactedHeaders.size == 1) "is" else "are"} exported as «redacted» — dimock never stores the raw value. Paste your own before replaying."
                 },
                 style = DimockType.Caption,
-                color = DimockColors.TextMuted,
+                color = DimockTheme.colors.textMuted,
             )
             Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -257,6 +257,6 @@ fun CurlSheet(ui: DetailUi, onCopy: (String) -> Unit, onShare: (String) -> Unit,
 @Composable
 private fun SheetHandle() {
     Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(width = 36.dp, height = 3.dp).background(DimockColors.Control, RoundedCornerShape(2.dp)))
+        Box(Modifier.size(width = 36.dp, height = 3.dp).background(DimockTheme.colors.control, RoundedCornerShape(2.dp)))
     }
 }

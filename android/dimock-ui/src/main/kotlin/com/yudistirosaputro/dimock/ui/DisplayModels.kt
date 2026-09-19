@@ -1,6 +1,5 @@
 package com.yudistirosaputro.dimock.ui
 
-import androidx.compose.ui.graphics.Color
 import com.yudistirosaputro.dimock.core.engine.BodyFormat
 import com.yudistirosaputro.dimock.core.engine.BodyView
 import com.yudistirosaputro.dimock.core.engine.CurlFormat
@@ -10,19 +9,27 @@ import com.yudistirosaputro.dimock.core.engine.Redactor
 import com.yudistirosaputro.dimock.core.engine.RuleEntry
 import com.yudistirosaputro.dimock.core.model.MockRule
 import com.yudistirosaputro.dimock.core.model.Transaction
-import com.yudistirosaputro.dimock.ui.theme.DimockColors
+import com.yudistirosaputro.dimock.ui.theme.EffectTone
+import com.yudistirosaputro.dimock.ui.theme.MethodTone
+import com.yudistirosaputro.dimock.ui.theme.SecondaryTone
+import com.yudistirosaputro.dimock.ui.theme.StatusTone
 
-/** One fully pre-computed Traffic row: the composable only places text and colour. */
+/**
+ * One fully pre-computed Traffic row: the composable only places text and resolves tones.
+ *
+ * Rows are built off the composition, so they carry no [androidx.compose.ui.graphics.Color] — a baked colour
+ * would be wrong the moment the palette changed under it. They carry meaning; the palette turns it into ink.
+ */
 data class TrafficRow(
     val id: String,
     val method: String,
-    val methodColor: Color,
+    val methodTone: MethodTone,
     val status: String,
-    val statusColor: Color,
+    val statusTone: StatusTone,
     val statusClass: Int?,
     val path: String,
     val secondary: String,
-    val secondaryColor: Color,
+    val secondaryTone: SecondaryTone,
     val duration: String,
     val mocked: Boolean,
     val failed: Boolean,
@@ -34,9 +41,9 @@ data class TrafficRow(
             return TrafficRow(
                 id = tx.id,
                 method = tx.method.uppercase(),
-                methodColor = DimockColors.forMethod(tx.method),
+                methodTone = MethodTone.of(tx.method),
                 status = Labels.status(tx),
-                statusColor = if (failed) DimockColors.Status5xx else DimockColors.forStatus(tx.responseCode),
+                statusTone = if (failed) StatusTone.SERVER_ERROR else StatusTone.of(tx.responseCode),
                 statusClass = tx.responseCode?.div(100),
                 path = tx.path,
                 secondary = when {
@@ -44,10 +51,10 @@ data class TrafficRow(
                     failure != null -> failure
                     else -> tx.host
                 },
-                secondaryColor = when {
-                    tx.mocked -> DimockColors.TextMuted
-                    failure != null -> DimockColors.Status5xx
-                    else -> DimockColors.TextDim
+                secondaryTone = when {
+                    tx.mocked -> SecondaryTone.RULE
+                    failure != null -> SecondaryTone.FAILURE
+                    else -> SecondaryTone.HOST
                 },
                 duration = Labels.duration(tx.durationMs),
                 mocked = tx.mocked,
@@ -64,7 +71,7 @@ data class RuleRow(
     val method: String,
     val path: String,
     val effect: String,
-    val effectColor: Color,
+    val effectTone: EffectTone,
     val meta: List<String>,
     val enabled: Boolean,
     val spent: Boolean,
@@ -88,11 +95,11 @@ data class RuleRow(
                 method = rule.match.method?.uppercase() ?: "ANY",
                 path = rule.match.path ?: (rule.match.host ?: "*"),
                 effect = effect,
-                effectColor = when {
-                    rule.fail != null -> DimockColors.Status5xx
-                    (rule.respond?.status ?: 200) >= 500 -> DimockColors.Status5xx
-                    (rule.respond?.status ?: 200) >= 400 -> DimockColors.Status4xx
-                    else -> DimockColors.Text
+                effectTone = when {
+                    rule.fail != null -> EffectTone.FAILURE
+                    (rule.respond?.status ?: 200) >= 500 -> EffectTone.FAILURE
+                    (rule.respond?.status ?: 200) >= 400 -> EffectTone.WARNING
+                    else -> EffectTone.PLAIN
                 },
                 meta = meta,
                 enabled = rule.enabled,
@@ -116,7 +123,7 @@ data class DetailUi(
     val url: String,
     val query: String?,
     val status: String,
-    val statusColor: Color,
+    val statusTone: StatusTone,
     val transport: String,
     val duration: String,
     val meta: String,
@@ -147,7 +154,7 @@ data class DetailUi(
                 url = tx.url.substringBefore('?'),
                 query = tx.url.substringAfter('?', "").ifEmpty { null }?.let { "?$it" },
                 status = Labels.status(tx),
-                statusColor = if (failed) DimockColors.Status5xx else DimockColors.forStatus(tx.responseCode),
+                statusTone = if (failed) StatusTone.SERVER_ERROR else StatusTone.of(tx.responseCode),
                 transport = Labels.transport(tx.responseCode, tx.error),
                 duration = Labels.duration(tx.durationMs),
                 meta = meta,
