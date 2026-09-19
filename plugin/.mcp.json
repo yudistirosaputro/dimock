@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dimock": {
+      "command": "npx",
+      "args": ["-y", "dimock", "mcp"]
+    }
+  }
+}
