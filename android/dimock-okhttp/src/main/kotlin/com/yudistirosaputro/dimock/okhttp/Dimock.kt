@@ -3,6 +3,7 @@ package com.yudistirosaputro.dimock.okhttp
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.util.Log
 import com.yudistirosaputro.dimock.core.EngineConfig
 import com.yudistirosaputro.dimock.core.HostInfo
@@ -43,9 +44,18 @@ object Dimock {
         val startServer: Boolean = true,
         /** Initial value of the per-device "agent may change mock rules" switch. */
         val agentWriteEnabled: Boolean = true,
+        /**
+         * Master switch. `false` means [init] stores this config, tears down anything already running and
+         * returns: no engine, no wire server, no shake detector, no init listeners, and [interceptor] is a
+         * plain pass-through. Lets one debug build ship dimock and still turn it off per variant, via
+         * `<meta-data android:name="com.yudistirosaputro.dimock.ENABLED" android:value="false" />`.
+         */
+        val enabled: Boolean = true,
+        /** Appearance of the in-app inspector. Rendered by `dimock-ui`; ignored when that module is absent. */
+        val inspectorTheme: InspectorTheme = InspectorTheme.System,
     )
 
-    const val VERSION = "0.1.0"
+    const val VERSION = "0.1.0-alpha01"
     private const val TAG = "dimock"
     private const val INSPECTOR_ACTIVITY = "com.yudistirosaputro.dimock.ui.DimockInspectorActivity"
 
@@ -68,6 +78,11 @@ object Dimock {
         if (this._config == config && engine != null) return this
         shutdown()
         appContext = app
+        this._config = config
+        if (!config.enabled) {
+            Log.i(TAG, "dimock is disabled (Config.enabled = false): no engine, no wire server, interceptor passes through")
+            return this
+        }
         val versionName = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull()
         val engineConfig = EngineConfig(
             maxTransactions = config.maxTransactions,
@@ -80,7 +95,6 @@ object Dimock {
         )
         val created = DimockEngine(HostInfo(app.packageName, versionName, VERSION), engineConfig)
         engine = created
-        this._config = config
         if (config.shakeToOpen && app is android.app.Application) shake = ShakeToOpen(app) { launch(it) }.also { it.start() }
         for (listener in initListeners) listener(app, created)
         if (config.startServer) {
@@ -155,13 +169,51 @@ object Dimock {
         _config = null
     }
 
+    /**
+     * Every key is optional:
+     * `AUTO_INIT` (bool, default true), `PORT` (int, default 6767), `SHAKE_TO_OPEN` (bool, default false),
+     * `ENABLED` (bool, default true), `INSPECTOR_THEME` (`system` | `dark` | `light`, default `system`).
+     */
     internal fun readManifestConfig(context: Context): Pair<Boolean, Config> {
         val meta = runCatching {
             context.packageManager.getApplicationInfo(context.packageName, PackageManager.GET_META_DATA).metaData
         }.getOrNull()
-        val autoInit = meta?.getBoolean("com.yudistirosaputro.dimock.AUTO_INIT", true) ?: true
-        val port = meta?.getInt("com.yudistirosaputro.dimock.PORT", DimockEngine.DEFAULT_PORT) ?: DimockEngine.DEFAULT_PORT
-        val shake = meta?.getBoolean("com.yudistirosaputro.dimock.SHAKE_TO_OPEN", false) ?: false
-        return autoInit to Config(port = port, shakeToOpen = shake)
+        return readManifestConfig(meta?.let(::BundleMeta))
     }
+
+    internal fun readManifestConfig(meta: ManifestMeta?): Pair<Boolean, Config> = meta.boolean(KEY_AUTO_INIT, true) to Config(
+        port = meta?.getInt(KEY_PORT, DimockEngine.DEFAULT_PORT) ?: DimockEngine.DEFAULT_PORT,
+        shakeToOpen = meta.boolean(KEY_SHAKE_TO_OPEN, false),
+        enabled = meta.boolean(KEY_ENABLED, true),
+        inspectorTheme = InspectorTheme.entries.firstOrNull { it.name.equals(meta?.getString(KEY_INSPECTOR_THEME), ignoreCase = true) }
+            ?: InspectorTheme.System,
+    )
+
+    /**
+     * A `manifestPlaceholders` substitution lands in the Bundle as a String, and `Bundle.getBoolean` then
+     * quietly hands back the default - so read the boolean, but let a parseable string form win.
+     */
+    private fun ManifestMeta?.boolean(key: String, default: Boolean): Boolean {
+        if (this == null) return default
+        return getString(key)?.toBooleanStrictOrNull() ?: getBoolean(key, default)
+    }
+
+    private const val KEY_AUTO_INIT = "com.yudistirosaputro.dimock.AUTO_INIT"
+    private const val KEY_PORT = "com.yudistirosaputro.dimock.PORT"
+    private const val KEY_SHAKE_TO_OPEN = "com.yudistirosaputro.dimock.SHAKE_TO_OPEN"
+    private const val KEY_ENABLED = "com.yudistirosaputro.dimock.ENABLED"
+    private const val KEY_INSPECTOR_THEME = "com.yudistirosaputro.dimock.INSPECTOR_THEME"
+}
+
+/** The slice of [android.os.Bundle] the manifest reader needs, so the parsing can be unit-tested. */
+internal interface ManifestMeta {
+    fun getBoolean(key: String, default: Boolean): Boolean
+    fun getInt(key: String, default: Int): Int
+    fun getString(key: String): String?
+}
+
+private class BundleMeta(private val bundle: Bundle) : ManifestMeta {
+    override fun getBoolean(key: String, default: Boolean): Boolean = bundle.getBoolean(key, default)
+    override fun getInt(key: String, default: Int): Int = bundle.getInt(key, default)
+    override fun getString(key: String): String? = bundle.getString(key)
 }

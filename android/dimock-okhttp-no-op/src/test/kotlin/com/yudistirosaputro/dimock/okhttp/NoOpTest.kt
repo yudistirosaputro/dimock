@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.ConnectException
@@ -39,6 +40,18 @@ class NoOpTest {
         } finally {
             server.shutdown()
         }
+    }
+
+    @Test
+    fun `Config carries enabled and inspectorTheme with the same shape as the debug artifact`() {
+        assertEquals(listOf("System", "Dark", "Light"), InspectorTheme.entries.map { it.name })
+        val defaults = Dimock.Config()
+        assertTrue(defaults.enabled)
+        assertEquals(InspectorTheme.System, defaults.inspectorTheme)
+
+        Dimock.init(ContextWrapper(null), Dimock.Config(enabled = false, inspectorTheme = InspectorTheme.Dark))
+        assertFalse(Dimock.isInitialized)
+        assertNull("the release artifact stores nothing", Dimock.config)
     }
 
     @Test

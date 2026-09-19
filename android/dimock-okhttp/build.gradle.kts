@@ -13,6 +13,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     testOptions.unitTests.isIncludeAndroidResources = true
+    // Lets JVM unit tests drive Dimock.init without Robolectric: android.util.Log becomes a no-op.
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 dependencies {

@@ -21,9 +21,11 @@ object Dimock {
         val shakeToOpen: Boolean = false,
         val startServer: Boolean = true,
         val agentWriteEnabled: Boolean = true,
+        val enabled: Boolean = true,
+        val inspectorTheme: InspectorTheme = InspectorTheme.System,
     )
 
-    const val VERSION = "0.1.0"
+    const val VERSION = "0.1.0-alpha01"
 
     private val passThrough = Interceptor { chain -> chain.proceed(chain.request()) }
 

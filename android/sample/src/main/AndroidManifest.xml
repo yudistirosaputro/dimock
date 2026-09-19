@@ -16,6 +16,11 @@
              <meta-data android:name="com.yudistirosaputro.dimock.PORT" android:value="6767" />
              <meta-data android:name="com.yudistirosaputro.dimock.AUTO_INIT" android:value="false" />   then call Dimock.init yourself -->
         <meta-data android:name="com.yudistirosaputro.dimock.SHAKE_TO_OPEN" android:value="true" />
+        <!-- Per-variant kill switch. The value comes from manifestPlaceholders in build.gradle.kts, so a
+             flavour such as productionDebug can set "false" and dimock stays inert in that build without
+             any BuildConfig check in app code. Optional companion:
+             <meta-data android:name="com.yudistirosaputro.dimock.INSPECTOR_THEME" android:value="dark" /> -->
+        <meta-data android:name="com.yudistirosaputro.dimock.ENABLED" android:value="${dimockEnabled}" />
 
         <activity
             android:name=".MainActivity"

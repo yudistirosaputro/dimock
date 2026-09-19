@@ -14,6 +14,12 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        // The per-variant switch an adopter copies. Defined in defaultConfig so EVERY variant has a value -
+        // leave one variant without it and manifest merging fails on the unresolved ${dimockEnabled}.
+        // A flavour that must never carry dimock overrides it, e.g.
+        //   productFlavors { create("production") { manifestPlaceholders["dimockEnabled"] = "false" } }
+        // which makes even productionDebug inert while still compiling against the same API.
+        manifestPlaceholders["dimockEnabled"] = "true"
     }
     buildFeatures { compose = true }
     compileOptions {
