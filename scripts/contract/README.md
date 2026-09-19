@@ -7,4 +7,4 @@ Targets:
 1. A device: `adb forward tcp:6767 tcp:6767 && scripts/contract/run.sh`
 2. The JVM stand-in, no device needed: `./gradlew :dimock-core:runDevServer -Pport=6767 &` then `scripts/contract/run.sh`
 
-`packages/core` runs these same scripts in its test suite so the TypeScript client and the device never drift.
+`packages/dimock` runs these same scripts in its test suite so the TypeScript client and the device never drift.

@@ -56,8 +56,8 @@ Status: **0.1.0, pre-release.** Engine, wire protocol, CLI and MCP server are te
 **1. Gradle** (app module)
 
 ```kotlin
-debugImplementation("io.github.yudistirosaputro:dimock-ui:0.1.0")            // interceptor + in-app inspector
-releaseImplementation("io.github.yudistirosaputro:dimock-okhttp-no-op:0.1.0") // same API, does nothing
+debugImplementation("io.github.yudistirosaputro:dimock-ui:0.1.0-alpha01")            // interceptor + in-app inspector
+releaseImplementation("io.github.yudistirosaputro:dimock-okhttp-no-op:0.1.0-alpha01") // same API, does nothing
 ```
 
 No Compose in the app? Use `dimock-okhttp` instead of `dimock-ui`.
@@ -138,14 +138,15 @@ android/
   dimock-okhttp-no-op/  release artifact, same API surface
   dimock-ui/            Compose inspector + notification
   sample/                Compose + Retrofit demo app hitting JSONPlaceholder (open source, no API key)
-packages/
-  core/                  TypeScript: adb discovery, wire client, YAML rules, capture→rule variants
-  mcp/                   MCP server (stdio) over the shared tool catalogue
-  cli/                   `dimock` CLI, `npx dimock`
+packages/dimock/         the `dimock` npm package — one artifact, three source folders
+  src/core/              adb discovery, wire client, YAML rules, capture→rule variants
+  src/mcp/               MCP server (stdio) over the shared tool catalogue
+  src/cli/               the `dimock` command, `npx dimock`
 plugin/                  Claude Code plugin: .mcp.json + skills/dimock/SKILL.md
 .claude-plugin/          marketplace manifest
-docs/                    prd, wire-protocol, rule-format, security, agents, publishing, design tokens
+docs/                    wire-protocol, rule-format, security, agents, publishing, design tokens
 scripts/contract/        curl-based wire-protocol contract tests (CI and TS client share them)
+scripts/release/         preflight: every version string must match the tag before anything publishes
 ```
 
 ## Development
@@ -164,7 +165,7 @@ cd android && ./gradlew :dimock-core:runDevServer &   # port 6767
 scripts/contract/run.sh
 
 # Try the CLI against that stand-in
-DIMOCK_BASE_URL=http://127.0.0.1:6767 npx --workspace packages/cli dimock health
+DIMOCK_BASE_URL=http://127.0.0.1:6767 node packages/dimock/dist/cli/bin.js health
 ```
 
 Every behaviour is written as a Given/When/Then that doubles as a test; a change to behaviour changes the test first.

@@ -1,6 +1,6 @@
 # dimock wire protocol (v1)
 
-The contract between the device library (`android/dimock-core` → `WireServer`) and every client (`packages/core`, curl, any agent). HTTP/1.1 with JSON bodies, served on the device at `127.0.0.1:6767` (configurable) and reached from a computer through `adb forward tcp:6767 tcp:6767`. Nothing in this protocol names Android.
+The contract between the device library (`android/dimock-core` → `WireServer`) and every client (`packages/dimock`, curl, any agent). HTTP/1.1 with JSON bodies, served on the device at `127.0.0.1:6767` (configurable) and reached from a computer through `adb forward tcp:6767 tcp:6767`. Nothing in this protocol names Android.
 
 Conventions
 

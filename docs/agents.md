@@ -1,6 +1,6 @@
 # Using dimock from an agent
 
-Three ways in, all backed by one tool catalogue (`packages/mcp/src/tools.ts`), so behaviour is identical.
+Three ways in, all backed by one tool catalogue (`packages/dimock/src/mcp/tools.ts`), so behaviour is identical.
 
 ## Claude Code (first-class)
 
