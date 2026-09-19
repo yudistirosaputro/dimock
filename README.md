@@ -21,6 +21,7 @@ A debug-only library that captures your app's OkHttp traffic, mocks responses on
 
 - [Why](#why)
 - [Quick start](#quick-start)
+- [Configuration](#configuration)
 - [Concepts](#concepts)
 - [Security and privacy](#security-and-privacy)
 - [Repository layout](#repository-layout)
@@ -72,7 +73,7 @@ OkHttpClient.Builder()
     .build()
 ```
 
-A `ContentProvider` starts the engine and the loopback wire server (port 6767) in debug builds; the release artifact contains nothing. Opt out of auto-start with `<meta-data android:name="com.yudistirosaputro.dimock.AUTO_INIT" android:value="false"/>` and call `Dimock.init(context, Dimock.Config(...))` yourself; change the port with `com.yudistirosaputro.dimock.PORT`.
+A `ContentProvider` starts the engine and the loopback wire server (port 6767) in debug builds; the release artifact contains nothing. Opt out of auto-start with `<meta-data android:name="com.yudistirosaputro.dimock.AUTO_INIT" android:value="false"/>` and call `Dimock.init(context, Dimock.Config(...))` yourself; change the port with `com.yudistirosaputro.dimock.PORT`; keep the real artifact in a variant but start nothing at all with `com.yudistirosaputro.dimock.ENABLED` set to `false`. Every field and manifest key: [Configuration](#configuration).
 
 **3. Connect an agent**
 
@@ -90,7 +91,42 @@ npx dimock capture list
 npx dimock mock from <captureId> empty
 ```
 
-**4. Look at it on the device.** Pull down the notification — `dimock · 12 calls`, the newest calls listed — and tap it, like Chucker. On Android 13+ request `POST_NOTIFICATIONS` once (the sample shows the one line). Without the permission: `Dimock.launch(context)` from a debug menu, or shake the phone with `<meta-data android:name="com.yudistirosaputro.dimock.SHAKE_TO_OPEN" android:value="true" />` (or `Config(shakeToOpen = true)`).
+**4. Look at it on the device.** Pull down the notification — `dimock · 12 calls`, the newest calls listed — and tap it, like Chucker. On Android 13+ request `POST_NOTIFICATIONS` once (the sample shows the one line). Without the permission: `Dimock.launch(context)` from a debug menu, or shake the phone with `<meta-data android:name="com.yudistirosaputro.dimock.SHAKE_TO_OPEN" android:value="true" />` (or `Config(shakeToOpen = true)`). The inspector follows the system dark/light setting with its own palette for each, never the host app's colours; pin one with `Config(inspectorTheme = InspectorTheme.Dark)`.
+
+## Configuration
+
+Everything is a field on `Dimock.Config`, passed to `Dimock.init(context, Dimock.Config(...))`. When the auto-init `ContentProvider` does the work instead, the manifest keys below cover the fields that have to be decided before any of your code runs.
+
+| Field | Default | What it does |
+|---|---|---|
+| `enabled` | `true` | `false` makes the real artifact inert: no engine, no wire server, no shake handler, no notification, and `interceptor()` passes every request straight through |
+| `port` | `6767` | Loopback port for the wire server |
+| `maxTransactions` | `500` | Ring-buffer size; past it the oldest capture is evicted |
+| `maxStoreBytes` | `50 MB` | Total capture budget, oldest out first |
+| `maxBodyBytes` | `1 MB` | Bodies above this are stored truncated |
+| `redactHeaders` | `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` | Header names blanked to `«redacted»` before storage |
+| `redactBodyPatterns` | empty | Regexes blanked in bodies before storage |
+| `showNotification` | `true` | The ongoing silent notification, the primary way into the inspector |
+| `shakeToOpen` | `false` | Shake any Activity to open the inspector; needs no permission |
+| `startServer` | `true` | `false` keeps captures and rules on the device, unreachable by an agent |
+| `agentWriteEnabled` | `true` | Starting value of the per-device *Agent may change mock rules* switch |
+| `inspectorTheme` | `InspectorTheme.System` | `System` follows the system dark/light setting; `Dark` and `Light` pin one palette |
+
+Manifest keys read by the auto-init provider, all under `com.yudistirosaputro.dimock.`: `AUTO_INIT`, `PORT`, `SHAKE_TO_OPEN`, `ENABLED`, `INSPECTOR_THEME` (`system` / `dark` / `light`).
+
+**Inert in one variant.** The provider runs before `Application.onCreate`, so a code-only switch is decided too late. Drive `ENABLED` from a manifest placeholder instead:
+
+```kotlin
+// app/build.gradle.kts
+defaultConfig { manifestPlaceholders["dimockEnabled"] = "true" }
+productFlavors { create("production") { manifestPlaceholders["dimockEnabled"] = "false" } }
+```
+
+```xml
+<meta-data android:name="com.yudistirosaputro.dimock.ENABLED" android:value="${dimockEnabled}" />
+```
+
+**`enabled = false`, or the no-op artifact?** For release builds, swap in `dimock-okhttp-no-op`: it contains no server, no storage, no notification and no ContentProvider at all, so there is nothing to switch off. Reach for `enabled = false` when a variant must ship the real artifact and still stay inert - a `productionDebug` build, say - because it flips per flavour without changing a dependency.
 
 ## Concepts
 
@@ -117,7 +153,7 @@ Matching: method, path glob or `re:` regex, host glob, query pairs, headers, JSO
 
 **Agent tools** (MCP and CLI are 1:1): `devices_list`, `apps_list`, `health`, `captures_list`, `captures_get` (with a curl reproduction), `captures_clear`, `mock_list`, `mock_set`, `mock_add`, `mock_toggle`, `mock_clear`, `mock_from_capture`, `logcat_tail`, `agent_activity`. Details: [docs/agents.md](docs/agents.md).
 
-**In-app inspector** (Compose, own dark instrument-panel theme, never the host app's): **Traffic** — Recording/Paused, `Filter by path`, chips `All GET POST 2xx 4xx·5xx Mocked Failed`, rows with method, status, path, `MOCK` badge and duration; **Detail** — big status with transport wording, `Served by mock rule …` banner, Request/Response tabs with `HEADERS` and `BODY`, pretty JSON with line numbers, form bodies decoded to `key: value`, *Search in body*, **cURL** and **Mock this**; **Force a state** sheet — method and path locked, one-tap *Status* (400/401/403/404/500/503, HTTP status only, empty body) · *Timeout* · *Connection reset* · *Slow* (2/5/10 s), plus *Custom response* (status + body editor pre-filled from the capture), one rule per endpoint; **Mocks** — `METHOD path → effect`, switch, origin `local`/`agent`, counters, *Reset* when spent, long-press to remove, *Disable all* / *Clear all*; **Agent** — connection state, the per-device *Agent may change mock rules* switch, and a log of every wire call. Glob paths, header and body matching, `times` and sequences are authored by the agent or the CLI on purpose, so the in-app UI never drifts from the wire protocol. Tokens: [docs/design/tokens.md](docs/design/tokens.md).
+**In-app inspector** (Compose, its own instrument-panel tokens in light and dark, never the host app's): **Traffic** — Recording/Paused, `Filter by path`, chips `All GET POST 2xx 4xx·5xx Mocked Failed`, rows with method, status, path, `MOCK` badge and duration; **Detail** — big status with transport wording, `Served by mock rule …` banner, Request/Response tabs with `HEADERS` and `BODY`, pretty JSON with line numbers, form bodies decoded to `key: value`, *Search in body*, **cURL** and **Mock this**; **Force a state** sheet — method and path locked, one-tap *Status* (400/401/403/404/500/503, HTTP status only, empty body) · *Timeout* · *Connection reset* · *Slow* (2/5/10 s), plus *Custom response* (status + body editor pre-filled from the capture), one rule per endpoint; **Mocks** — `METHOD path → effect`, switch, origin `local`/`agent`, counters, *Reset* when spent, long-press to remove, *Disable all* / *Clear all*; **Agent** — connection state, the per-device *Agent may change mock rules* switch, and a log of every wire call. Glob paths, header and body matching, `times` and sequences are authored by the agent or the CLI on purpose, so the in-app UI never drifts from the wire protocol. Tokens: [docs/design/tokens.md](docs/design/tokens.md).
 
 ## Security and privacy
 
@@ -133,7 +169,7 @@ Full write-up for your security review: [docs/security.md](docs/security.md).
 
 ```
 android/
-  dimock-core/          engine: rules, matcher, capture store, redaction, wire server (pure JVM, 56 tests)
+  dimock-core/          engine: rules, matcher, capture store, redaction, wire server (pure JVM, 71 tests)
   dimock-okhttp/        OkHttp interceptor, Dimock entry point, ContentProvider auto-init
   dimock-okhttp-no-op/  release artifact, same API surface
   dimock-ui/            Compose inspector + notification

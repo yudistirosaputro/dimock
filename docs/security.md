@@ -8,8 +8,11 @@ What a reviewer needs to know before letting dimock into a codebase.
 |---|---|---|
 | debug | `dimock-okhttp` (+ optional `dimock-ui`) | Interceptor, on-device capture store, rule store, loopback wire server, ContentProvider auto-init |
 | release | `dimock-okhttp-no-op` | Same public API. No server, no storage, no notification, no ContentProvider. `Dimock.interceptor()` is `chain.proceed(chain.request())`. |
+| any variant with `enabled = false` | `dimock-okhttp` (+ optional `dimock-ui`) | The real artifact is on the classpath but inert at runtime: no engine, no capture store, no rule store, no wire server, no notification, no shake handler. `Dimock.interceptor()` passes every request through. |
 
 The release artifact has no dependency on `dimock-core`; a unit test in the no-op module fails if that class ever appears on its classpath.
+
+`enabled = false` is a runtime switch for a variant that must ship the real artifact yet stay inert, for example a `productionDebug` build pointed at production servers. Set it from manifest meta-data (`com.yudistirosaputro.dimock.ENABLED`, fed by `manifestPlaceholders`) rather than from code: auto-init runs from a ContentProvider before `Application.onCreate`, so a code-only switch would arrive after the server had already started. A reviewer assessing what reaches a shipped build should still prefer the no-op artifact, which removes the code entirely rather than disarming it.
 
 ## Network surface
 
