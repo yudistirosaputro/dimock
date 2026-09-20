@@ -30,7 +30,7 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew --no-daemon -PVERSION_NAME="${GITHUB_REF_NAME#v}" publishAndReleaseToMavenCentral
+        run: ./gradlew --no-daemon --no-configuration-cache -PVERSION_NAME="${GITHUB_REF_NAME#v}" publishAndReleaseToMavenCentral
 
   npm:
     needs: preflight
@@ -46,7 +46,15 @@ jobs:
       - name: Publish dimock
         working-directory: packages/dimock
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
-        run: npm publish --access public --provenance
+        # Moving a tag replays this job. npm rejects a version it already holds with a 403, and that
+        # would block github-release, so a version already on the registry counts as published.
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if npm view "dimock@$version" version >/dev/null 2>&1; then
+            echo "dimock@$version is already on the registry - nothing to publish."
+          else
+            npm publish --access public --provenance
+          fi
 
   github-release:
     needs: [maven-central, npm]
