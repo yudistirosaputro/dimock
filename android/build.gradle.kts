@@ -41,5 +41,29 @@ subprojects {
                 }
             }
         }
+
+        // AGP builds the javadoc jar with a bundled Dokka whose ASM cannot read the
+        // PermittedSubclasses attribute that sealed classes emit at JVM target 17, so
+        // javaDocReleaseGeneration dies on every Android module. Central only requires the jar to
+        // exist, so ship an empty one and keep the real API docs as a follow-up.
+        plugins.withId("com.android.library") {
+            extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+                configure(
+                    com.vanniktech.maven.publish.AndroidSingleVariantLibrary(
+                        variant = "release",
+                        sourcesJar = true,
+                        publishJavadocJar = false,
+                    ),
+                )
+            }
+            val emptyJavadocJar = tasks.register("emptyJavadocJar", org.gradle.api.tasks.bundling.Jar::class.java) {
+                archiveClassifier.set("javadoc")
+            }
+            extensions.configure<org.gradle.api.publish.PublishingExtension> {
+                publications.withType(org.gradle.api.publish.maven.MavenPublication::class.java).configureEach {
+                    artifact(emptyJavadocJar)
+                }
+            }
+        }
     }
 }
