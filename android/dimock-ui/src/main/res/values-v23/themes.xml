@@ -2,9 +2,9 @@
 <resources>
     <!-- Dark status bar icons on the light chrome. windowLightStatusBar is API 23+, hence the qualifier. -->
     <style name="Theme.Dimock.Inspector" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F1F3F5</item>
-        <item name="android:statusBarColor">#F1F3F5</item>
-        <item name="android:navigationBarColor">#F1F3F5</item>
+        <item name="android:windowBackground">#F2F3F5</item>
+        <item name="android:statusBarColor">#F2F3F5</item>
+        <item name="android:navigationBarColor">#F2F3F5</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

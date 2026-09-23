@@ -2,9 +2,9 @@
 <resources>
     <!-- Light status bar icons on the dark chrome. -->
     <style name="Theme.Dimock.Inspector" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0E1012</item>
-        <item name="android:statusBarColor">#0E1012</item>
-        <item name="android:navigationBarColor">#0E1012</item>
+        <item name="android:windowBackground">#15181D</item>
+        <item name="android:statusBarColor">#15181D</item>
+        <item name="android:navigationBarColor">#15181D</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

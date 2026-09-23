@@ -6,8 +6,8 @@
       opens on a flash of the wrong background. It mirrors DimockPalettes.Light; values-night/ mirrors Dark.
     -->
     <style name="Theme.Dimock.Inspector" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F1F3F5</item>
-        <item name="android:statusBarColor">#F1F3F5</item>
-        <item name="android:navigationBarColor">#F1F3F5</item>
+        <item name="android:windowBackground">#F2F3F5</item>
+        <item name="android:statusBarColor">#F2F3F5</item>
+        <item name="android:navigationBarColor">#F2F3F5</item>
     </style>
 </resources>

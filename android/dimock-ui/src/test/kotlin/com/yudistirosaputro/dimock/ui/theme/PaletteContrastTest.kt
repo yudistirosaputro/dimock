@@ -14,20 +14,20 @@ import kotlin.math.pow
  * relative luminance, `(L1 + 0.05) / (L2 + 0.05)` — instead of trusting the eye.
  *
  * AA for text is 4.5:1; WCAG 1.4.11 asks 3:1 of non-text boundaries (our `control` borders and inactive switch).
- * `accent` is deliberately absent from the ink list: it is a fill colour, 1.18:1 against the light surface, and
- * `accentText` is the ink that carries its meaning — see [DimockPalette.accent].
+ * Inks are measured on all three surfaces — text sits in sunken wells (code blocks, fields) as often as on the
+ * screen itself. `accent` is measured twice: as the fill under `onAccent`, and as ink through `accentText`.
  *
  * Pure JVM: `Color` is Kotlin value-class arithmetic, no Android framework call is made.
  */
 class PaletteContrastTest {
 
     @Test
-    fun `dark palette clears WCAG AA for every ink on both surfaces`() {
+    fun `dark palette clears WCAG AA for every ink on every surface`() {
         assertPalette("dark", DimockPalettes.Dark)
     }
 
     @Test
-    fun `light palette clears WCAG AA for every ink on both surfaces`() {
+    fun `light palette clears WCAG AA for every ink on every surface`() {
         assertPalette("light", DimockPalettes.Light)
     }
 
@@ -62,13 +62,15 @@ class PaletteContrastTest {
             "status4xx" to p.status4xx,
             "status3xx" to p.status3xx,
         )
-        val backgrounds = listOf("surface" to p.surface, "surfaceRaised" to p.surfaceRaised)
+        val backgrounds = listOf("surface" to p.surface, "surfaceRaised" to p.surfaceRaised, "surfaceSunken" to p.surfaceSunken)
         return buildList {
             for ((inkName, ink) in inks) {
                 for ((bgName, bg) in backgrounds) add(Probe("$inkName on $bgName", ink, bg, AA_TEXT))
             }
             add(Probe("onAccent on accent", p.onAccent, p.accent, AA_TEXT))
+            add(Probe("snackbarText on snackbarSurface", p.snackbarText, p.snackbarSurface, AA_TEXT))
             add(Probe("control on surface", p.control, p.surface, AA_NON_TEXT))
+            add(Probe("control on surfaceRaised", p.control, p.surfaceRaised, AA_NON_TEXT))
         }
     }
 
