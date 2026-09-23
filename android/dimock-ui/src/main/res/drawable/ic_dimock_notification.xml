@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar glyph: a frame with a swapped-in block — the real response's slot, filled by a mock. White/alpha only, as Android requires. -->
+<!-- Status-bar glyph: the dimock mark, white/alpha only as Android requires. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M4,4h16v16H4z M6,6v12h12V6z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10,10h8v8h-8z" />
+    <group android:scaleX="0.4" android:scaleY="0.4" android:translateX="-9.6" android:translateY="-9.6">
+        <group>
+            <clip-path android:pathData="M-195.3,255.95 L283.88,-105.14 L103.34,-344.73 L-375.84,16.36 Z" />
+            <path android:fillColor="#FFFFFFFF" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+        </group>
+        <group>
+            <clip-path android:pathData="M-189.88,263.14 L289.3,-97.95 L469.84,141.64 L-9.34,502.73 Z" />
+            <path android:fillColor="#FFFFFFFF" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+        </group>
+    </group>
 </vector>
