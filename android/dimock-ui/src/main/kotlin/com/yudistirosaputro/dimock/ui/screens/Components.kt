@@ -9,14 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,12 +23,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yudistirosaputro.dimock.core.engine.Redactor
@@ -40,27 +46,27 @@ import com.yudistirosaputro.dimock.ui.theme.DimockDimens
 import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
-/** Shared pieces that make every screen read as one instrument panel. */
-
 /**
- * An accent-filled shape. The lime keeps its one meaning — mocked — in both themes, but it is a fill and never
- * ink: against the near-white light surface it measures 1.18:1, so there the shape also gets a 1 px `accentText`
- * outline. Without it the chip floats with no edge at all.
+ * Shared pieces that make every screen read as one instrument panel.
+ *
+ * Three radii, layered: [containerShape] for grouped lists and cards, [controlShape] for anything a finger
+ * presses or types into, [tagShape] for badges and knobs. Nothing here is a capsule.
  */
+
+val containerShape: Shape get() = RoundedCornerShape(DimockDimens.RADIUS_CONTAINER_DP.dp)
+val controlShape: Shape get() = RoundedCornerShape(DimockDimens.RADIUS_CONTROL_DP.dp)
+val tagShape: Shape get() = RoundedCornerShape(DimockDimens.RADIUS_TAG_DP.dp)
+
+/** An accent-filled shape. Sand keeps its one meaning — mocked — in both themes, and clears AA as ink too, so no outline. */
 @Composable
-fun Modifier.accentFill(shape: Shape = RoundedCornerShape(DimockDimens.RADIUS_DP.dp)): Modifier {
-    val colors = DimockTheme.colors
-    val needsOutline = colors.accent != colors.accentText
-    return background(colors.accent, shape)
-        .then(if (needsOutline) Modifier.border(DimockDimens.ACCENT_OUTLINE_DP.dp, colors.accentText, shape) else Modifier)
-}
+fun Modifier.accentFill(shape: Shape = controlShape): Modifier = background(DimockTheme.colors.accent, shape)
 
 @Composable
 fun Wordmark(appId: String? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(Modifier.size(10.dp).background(DimockTheme.colors.accentText, RoundedCornerShape(2.dp)))
+        Box(Modifier.size(12.dp).background(DimockTheme.colors.accent, RoundedCornerShape(3.dp)))
         Text("dimock", style = DimockType.Wordmark, color = DimockTheme.colors.text)
-        if (appId != null) Text(appId, style = DimockType.MonoSmall, color = DimockTheme.colors.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (appId != null) Text(appId, style = DimockType.MonoSmall.copy(fontSize = 11.5.sp), color = DimockTheme.colors.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -69,48 +75,65 @@ fun Hairline(color: Color = DimockTheme.colors.hairlineSoft) {
     Box(Modifier.fillMaxWidth().height(1.dp).background(color))
 }
 
+/** The divider between rows of a grouped list: starts under the path, not at the card edge. */
+@Composable
+fun InsetDivider(start: Dp = DimockDimens.ROW_DIVIDER_INSET_DP.dp) {
+    Box(Modifier.fillMaxWidth().padding(start = start).height(1.dp).background(DimockTheme.colors.hairlineSoft))
+}
+
+/**
+ * A grouped list or card: raised surface, container radius, clipped so row backgrounds and dividers stop at the
+ * corner. Inset [DimockDimens.INSET_DP] from the screen edge by the caller.
+ */
+@Composable
+fun GroupCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Box(modifier.clip(containerShape).background(DimockTheme.colors.surfaceRaised, containerShape)) { content() }
+}
+
+/** The MOCK badge: a filled sand tag with dark text. The only place the accent appears on a Traffic row. */
 @Composable
 fun MockTag() {
     Text(
         "MOCK",
         style = DimockType.MockTag,
         color = DimockTheme.colors.onAccent,
-        modifier = Modifier.accentFill(RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp),
+        modifier = Modifier.accentFill(tagShape).padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
-/** Rectangular switch, 44x24, knob 18. Accent fill when on, an outlined well when off. */
+/** Rounded-rectangle switch, 44x26, knob 20. Accent fill when on, an outlined well when off. Not a pill. */
 @Composable
 fun DimockSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val colors = DimockTheme.colors
-    val shape = RoundedCornerShape(DimockDimens.RADIUS_DP.dp)
+    val shape = RoundedCornerShape(9.dp)
     Box(
         Modifier
-            .size(width = 44.dp, height = 24.dp)
+            .size(width = 44.dp, height = 26.dp)
             .clip(shape)
-            .then(if (checked) Modifier.accentFill(shape) else Modifier.background(colors.surfaceRaised).border(2.dp, colors.textDim, shape))
+            .then(if (checked) Modifier.accentFill(shape) else Modifier.border(2.dp, colors.control, shape))
             .clickable { onCheckedChange(!checked) },
     ) {
         Box(
             Modifier
                 .padding(3.dp)
-                .size(18.dp)
+                .size(20.dp)
                 .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
-                .background(if (checked) colors.onAccent else colors.textDim, RoundedCornerShape(3.dp)),
+                .background(if (checked) colors.onAccent else colors.control, tagShape),
         )
     }
 }
 
-/** Small bordered text action: `Clear`, `Disable all`, `Reset`. */
+/** Small bordered text action: `Clear`, `Disable all`, `Reset`, `Apply`. 36 dp tall. */
 @Composable
 fun OutlinedAction(text: String, color: Color = DimockTheme.colors.text, enabled: Boolean = true, onClick: () -> Unit) {
     val border = if (color == DimockTheme.colors.text) DimockTheme.colors.control else color
     Box(
         Modifier
             .heightIn(min = 36.dp)
-            .border(1.dp, if (enabled) border else DimockTheme.colors.hairlineSoft, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+            .clip(controlShape)
+            .border(1.dp, if (enabled) border else DimockTheme.colors.hairline, controlShape)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = DimockType.Label, color = if (enabled) color else DimockTheme.colors.textDim) }
 }
@@ -124,53 +147,56 @@ fun TextAction(text: String, color: Color = DimockTheme.colors.accentText, enabl
     ) { Text(text, style = DimockType.Label, color = if (enabled) color else DimockTheme.colors.textDim) }
 }
 
+/** The primary button: sand fill, dark text, 48 dp. */
 @Composable
 fun AccentButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val colors = DimockTheme.colors
-    val shape = RoundedCornerShape(DimockDimens.RADIUS_DP.dp)
     Box(
         modifier
             .heightIn(min = 48.dp)
-            .clip(shape)
-            .then(if (enabled) Modifier.accentFill(shape) else Modifier.background(colors.control, shape))
+            .clip(controlShape)
+            .then(if (enabled) Modifier.accentFill(controlShape) else Modifier.background(colors.control, controlShape))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = DimockType.Label.copy(fontSize = 15.sp), color = colors.onAccent) }
+    ) { Text(text, style = DimockType.Label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = colors.onAccent) }
 }
 
+/** The secondary button beside an [AccentButton]: control-coloured outline, 48 dp. */
 @Composable
 fun GhostButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier
             .heightIn(min = 48.dp)
-            .border(1.dp, DimockTheme.colors.control, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+            .clip(controlShape)
+            .border(1.dp, DimockTheme.colors.control, controlShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = DimockType.Label, color = DimockTheme.colors.text) }
+    ) { Text(text, style = DimockType.Label.copy(fontSize = 14.sp), color = DimockTheme.colors.text) }
 }
 
-/** Filter chip: hairline when idle, accent outline + text when selected. 36 dp tall inside a 44 dp tap area. */
+/** Filter chip, 34 dp: control outline and muted mono text when idle; a solid sand fill with dark text when selected. */
 @Composable
 fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = DimockTheme.colors
     Box(
         Modifier
-            .heightIn(min = 36.dp)
-            .border(1.dp, if (selected) DimockTheme.colors.accentText else DimockTheme.colors.control, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-            .background(if (selected) DimockTheme.colors.accentText.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+            .heightIn(min = 34.dp)
+            .clip(controlShape)
+            .then(if (selected) Modifier.accentFill(controlShape) else Modifier.border(1.dp, colors.control, controlShape))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = DimockType.MonoSmall.copy(fontSize = 13.sp), color = if (selected) DimockTheme.colors.accentText else DimockTheme.colors.textMuted) }
+    ) { Text(text, style = DimockType.MonoSmall.copy(fontSize = 12.5.sp), color = if (selected) colors.onAccent else colors.textMuted) }
 }
 
-/** Single-line filter/search field in the raised surface, hairline border, no M3 decoration. */
+/** Single-line filter/search field: a sunken well with a hairline edge, 44 dp, no M3 decoration. */
 @Composable
 fun SearchField(value: String, hint: String, modifier: Modifier = Modifier, onChange: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
     Row(
         modifier
             .heightIn(min = DimockDimens.TAP_TARGET_DP.dp)
-            .background(DimockTheme.colors.surfaceRaised, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-            .border(1.dp, DimockTheme.colors.hairlineSoft, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+            .background(DimockTheme.colors.surfaceSunken, controlShape)
+            .border(1.dp, DimockTheme.colors.hairline, controlShape)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -191,6 +217,67 @@ fun SearchField(value: String, hint: String, modifier: Modifier = Modifier, onCh
     }
 }
 
+/**
+ * A sunken well for a text editor or a code block: sunken surface, hairline edge, control radius. When
+ * [focused], the edge turns sand and a soft ring sits outside it, so the editor being typed into is unmistakable.
+ */
+@Composable
+fun Well(modifier: Modifier = Modifier, focused: Boolean = false, content: @Composable () -> Unit) {
+    val colors = DimockTheme.colors
+    Box(
+        modifier
+            // The ring is drawn outside the bounds, so focusing never resizes the well or re-wraps its text.
+            .then(
+                if (focused) Modifier.drawBehind {
+                    val ring = 3.dp.toPx()
+                    drawRoundRect(
+                        color = colors.accentSoft,
+                        topLeft = Offset(-ring, -ring),
+                        size = Size(size.width + 2 * ring, size.height + 2 * ring),
+                        cornerRadius = CornerRadius(DimockDimens.RADIUS_CONTROL_DP.dp.toPx() + ring),
+                        style = Stroke(ring),
+                    )
+                } else Modifier,
+            )
+            .background(colors.surfaceSunken, controlShape)
+            .border(1.dp, if (focused) colors.accent else colors.hairline, controlShape),
+    ) { content() }
+}
+
+/**
+ * Two or more labels in one sunken track; the selected one sits on a raised, shadowed pane. Replaces the
+ * underline tabs of the old panel on Detail (Request | Response).
+ */
+@Composable
+fun SegmentedControl(options: List<String>, selected: Int, modifier: Modifier = Modifier, counts: List<String?>? = null, onSelect: (Int) -> Unit) {
+    val colors = DimockTheme.colors
+    val inner = RoundedCornerShape(DimockDimens.RADIUS_CONTROL_DP.dp - 3.dp)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(colors.surfaceSunken, controlShape)
+            .border(1.dp, colors.hairline, controlShape)
+            .padding(3.dp),
+    ) {
+        options.forEachIndexed { index, label ->
+            val on = index == selected
+            Row(
+                Modifier
+                    .weight(1f)
+                    .height(34.dp)
+                    .clip(inner)
+                    .then(if (on) Modifier.shadow(1.dp, inner).background(colors.surfaceRaised, inner) else Modifier)
+                    .clickable { onSelect(index) },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label, style = DimockType.Label.copy(fontSize = 13.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal), color = if (on) colors.text else colors.textMuted)
+                counts?.getOrNull(index)?.let { Text("  $it", style = DimockType.SectionLabel, color = colors.textDim) }
+            }
+        }
+    }
+}
+
 @Composable
 fun SectionLabel(text: String) {
     Text(text, style = DimockType.SectionLabel, color = DimockTheme.colors.textDim)
@@ -207,18 +294,16 @@ fun KeyValueRow(key: String, value: String, valueColor: Color = DimockTheme.colo
 
 @Composable
 fun CommandBox(command: String, onCopy: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(DimockTheme.colors.surfaceRaised, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-            .border(1.dp, DimockTheme.colors.hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("$ ", style = DimockType.MonoCode, color = DimockTheme.colors.textDim)
-        Text(command, style = DimockType.MonoCode, color = DimockTheme.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Text("Copy", style = DimockType.Label, color = DimockTheme.colors.accentText, modifier = Modifier.clickable(onClick = onCopy))
+    Well(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("$ ", style = DimockType.MonoCode, color = DimockTheme.colors.textDim)
+            Text(command, style = DimockType.MonoCode, color = DimockTheme.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text("Copy", style = DimockType.Label, color = DimockTheme.colors.accentText, modifier = Modifier.clickable(onClick = onCopy))
+        }
     }
 }
 
@@ -233,30 +318,30 @@ fun EmptyState(title: String, message: String) {
     }
 }
 
-/** Outlined notice: accent for "mocked", 5xx red for a failure, amber for a warning. */
+/**
+ * A soft notice: the colour at low alpha as the fill, an 8 dp dot of it at the start, no border. Accent for
+ * "mocked", 5xx red for a failure, 4xx for a warning.
+ */
 @Composable
 fun Banner(text: String, color: Color, detail: String? = null, trailing: String? = null, onClick: (() -> Unit)? = null) {
+    val fill = if (color == DimockTheme.colors.accent || color == DimockTheme.colors.accentText) DimockTheme.colors.accentSoft else color.copy(alpha = 0.12f)
     Row(
         Modifier
             .fillMaxWidth()
-            .border(1.dp, color, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
+            .clip(controlShape)
+            .background(fill, controlShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
+        Box(Modifier.size(8.dp).background(color, RoundedCornerShape(3.dp)))
         Column(Modifier.weight(1f)) {
             Text(text, style = DimockType.Label, color = DimockTheme.colors.text)
             if (detail != null) Text(detail, style = DimockType.Caption, color = DimockTheme.colors.textMuted)
         }
         if (trailing != null) Text(trailing, style = DimockType.Label, color = color)
     }
-}
-
-@Composable
-fun MarkerColumn(mocked: Boolean, color: Color = DimockTheme.colors.accentText) {
-    Box(Modifier.width(DimockDimens.MARKER_WIDTH_DP.dp).fillMaxHeight().background(if (mocked) color else Color.Transparent))
 }
 
 // ---- previews ---------------------------------------------------------------------------------------------

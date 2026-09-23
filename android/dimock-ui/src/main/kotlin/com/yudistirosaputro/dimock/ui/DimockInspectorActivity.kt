@@ -9,18 +9,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -50,9 +52,10 @@ import com.yudistirosaputro.dimock.ui.screens.AgentScreen
 import com.yudistirosaputro.dimock.ui.screens.CurlSheet
 import com.yudistirosaputro.dimock.ui.screens.DetailScreen
 import com.yudistirosaputro.dimock.ui.screens.ForceStateSheet
-import com.yudistirosaputro.dimock.ui.screens.Hairline
 import com.yudistirosaputro.dimock.ui.screens.MocksScreen
 import com.yudistirosaputro.dimock.ui.screens.TrafficScreen
+import com.yudistirosaputro.dimock.ui.screens.controlShape
+import com.yudistirosaputro.dimock.ui.theme.DimockDimens
 import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
 
@@ -135,18 +138,27 @@ private fun InspectorApp(viewModel: InspectorViewModel, startTab: String, onCopy
         viewModel.snackbarShown()
     }
 
+    val backStack by nav.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    val barShown = route != Routes.DETAIL
+
+    // The tab bar floats over the screens, so the Scaffold reserves nothing for it; each screen leaves
+    // BAR_CLEARANCE_DP under itself instead.
     Scaffold(
         containerColor = DimockTheme.colors.surface,
         snackbarHost = {
-            SnackbarHost(snackbar) { data ->
-                Snackbar(containerColor = DimockTheme.colors.snackbarSurface, contentColor = DimockTheme.colors.snackbarText, shape = RoundedCornerShape(4.dp)) {
+            // Lifted clear of the floating bar so a "Copied" never lands on the tabs.
+            val lift = if (barShown) (DimockDimens.BAR_HEIGHT_DP + DimockDimens.BAR_BOTTOM_DP).dp else 0.dp
+            SnackbarHost(snackbar, Modifier.padding(bottom = lift)) { data ->
+                Snackbar(containerColor = DimockTheme.colors.snackbarSurface, contentColor = DimockTheme.colors.snackbarText, shape = controlShape) {
                     Text(data.visuals.message, style = DimockType.Body)
                 }
             }
         },
-        bottomBar = { BottomBar(nav, state.enabledMocks) },
     ) { padding ->
-        Box(Modifier.padding(padding).statusBarsPadding()) {
+        // The Scaffold padding already carries both system-bar insets; consuming them here keeps the screens'
+        // own `navigationBarsPadding()` calls, and the bar's, from adding a second inset.
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
             NavHost(nav, startDestination = startTab.takeIf { it == Routes.MOCKS || it == Routes.AGENT } ?: Routes.TRAFFIC) {
                 composable(Routes.TRAFFIC) {
                     TrafficScreen(
@@ -199,22 +211,36 @@ private fun InspectorApp(viewModel: InspectorViewModel, startTab: String, onCopy
                     }
                 }
             }
+            if (barShown) {
+                BottomBar(
+                    nav,
+                    route,
+                    state.enabledMocks,
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(start = DimockDimens.INSET_DP.dp, end = DimockDimens.INSET_DP.dp, bottom = DimockDimens.BAR_BOTTOM_DP.dp),
+                )
+            }
         }
     }
 }
 
+/** The floating tab bar: a raised, bordered, shadowed slab inset from the screen edge. Hidden on Detail by the caller. */
 @Composable
-private fun BottomBar(nav: NavHostController, enabledMocks: Int) {
-    val current by nav.currentBackStackEntryAsState()
-    val route = current?.destination?.route
-    if (route == Routes.DETAIL) return
-    Column(Modifier.background(DimockTheme.colors.surface).navigationBarsPadding()) {
-        Hairline(DimockTheme.colors.hairline)
-        Row(Modifier.fillMaxWidth().height(60.dp)) {
-            Tab("Traffic", route == Routes.TRAFFIC, Modifier.weight(1f)) { nav.switchTo(Routes.TRAFFIC) }
-            Tab("Mocks", route == Routes.MOCKS, Modifier.weight(1f), badge = enabledMocks.takeIf { it > 0 }?.toString()) { nav.switchTo(Routes.MOCKS) }
-            Tab("Agent", route == Routes.AGENT, Modifier.weight(1f)) { nav.switchTo(Routes.AGENT) }
-        }
+private fun BottomBar(nav: NavHostController, route: String?, enabledMocks: Int, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(DimockDimens.RADIUS_BAR_DP.dp)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(DimockDimens.BAR_HEIGHT_DP.dp)
+            .shadow(8.dp, shape)
+            .background(DimockTheme.colors.surfaceRaised, shape)
+            .border(1.dp, DimockTheme.colors.hairline, shape),
+    ) {
+        Tab("Traffic", route == Routes.TRAFFIC, Modifier.weight(1f)) { nav.switchTo(Routes.TRAFFIC) }
+        Tab("Mocks", route == Routes.MOCKS, Modifier.weight(1f), badge = enabledMocks.takeIf { it > 0 }?.toString()) { nav.switchTo(Routes.MOCKS) }
+        Tab("Agent", route == Routes.AGENT, Modifier.weight(1f)) { nav.switchTo(Routes.AGENT) }
     }
 }
 
@@ -228,15 +254,25 @@ private fun NavHostController.switchTo(route: String) {
 
 @Composable
 private fun Tab(label: String, selected: Boolean, modifier: Modifier, badge: String? = null, onClick: () -> Unit) {
-    Column(modifier.fillMaxSize().clickable(onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) DimockTheme.colors.accentText else DimockTheme.colors.surface))
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+    val colors = DimockTheme.colors
+    Box(modifier.fillMaxSize().clickable(onClick = onClick)) {
+        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 label,
-                style = DimockType.Label.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
-                color = if (selected) DimockTheme.colors.text else DimockTheme.colors.textMuted,
+                style = DimockType.Tab.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+                color = if (selected) colors.text else colors.textMuted,
             )
-            if (badge != null) Text("  $badge", style = DimockType.SectionLabel, color = DimockTheme.colors.accentText)
+            if (badge != null) Text(badge, style = DimockType.SectionLabel, color = colors.accentText)
+        }
+        // The active mark is a 16×3 dp pill under the label, not an edge stripe.
+        if (selected) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+                    .size(width = 16.dp, height = 3.dp)
+                    .background(colors.accent, RoundedCornerShape(DimockDimens.RADIUS_PILL_DP.dp)),
+            )
         }
     }
 }

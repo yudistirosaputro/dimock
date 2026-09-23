@@ -1,5 +1,6 @@
 package com.yudistirosaputro.dimock.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,13 +10,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -24,16 +31,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -44,14 +60,22 @@ import com.yudistirosaputro.dimock.ui.DetailUi
 import com.yudistirosaputro.dimock.ui.theme.DimockDimens
 import com.yudistirosaputro.dimock.ui.theme.DimockTheme
 import com.yudistirosaputro.dimock.ui.theme.DimockType
+import kotlinx.coroutines.launch
 
 /** What the sheet hands back: the preset plus the parameters it may carry. */
 data class ForceState(val preset: Preset, val status: Int = 500, val delayMs: Long = 5_000, val body: String = "")
+
+/** Both sheets share it: the sheet radius on the two top corners only. */
+private val sheetShape: Shape
+    get() = RoundedCornerShape(topStart = DimockDimens.RADIUS_SHEET_DP.dp, topEnd = DimockDimens.RADIUS_SHEET_DP.dp)
 
 /**
  * Screen 3 (docs/prd.md §7.2): one-tap presets on a locked method + path, plus a Custom response editor whose
  * status and body are pre-filled from the capture. Path, method and headers are not editable here by design;
  * glob paths, `times` and sequences are authored by the agent or the CLI.
+ *
+ * The sheet never rests half open: tapping into the BODY editor expands it fully and scrolls so the whole
+ * editor sits above the keyboard, not behind it.
  *
  * [customExpanded] is the Custom row's starting state. It exists so a `@Preview` can show the editor open;
  * on the device the row always opens by tap and this stays false.
@@ -65,15 +89,27 @@ fun ForceStateSheet(ui: DetailUi, customExpanded: Boolean = false, onApply: (For
     var customStatus by remember { mutableStateOf((ui.tx.responseCode ?: 200).toString()) }
     var customBody by remember { mutableStateOf(LocalPresets.capturedBody(ui.tx)) }
     val customStatusValid = customStatus.toIntOrNull()?.let { it in 100..599 } == true
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = DimockTheme.colors.surfaceRaised,
         contentColor = DimockTheme.colors.text,
-        shape = RoundedCornerShape(topStart = DimockDimens.RADIUS_SHEET_DP.dp, topEnd = DimockDimens.RADIUS_SHEET_DP.dp),
+        shape = sheetShape,
         dragHandle = { SheetHandle() },
     ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = DimockDimens.GUTTER_DP.dp).navigationBarsPadding()) {
+        // M3's ModalBottomSheet already lifts the whole sheet above the keyboard and consumes the bottom inset, so
+        // these two resolve to zero today; they stay, outside the scroll, as the guard for a Material version that
+        // stops doing so — the viewport must shrink rather than slide under the IME for `bringIntoView` to land the
+        // focused editor in the visible part.
+        Column(
+            Modifier
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = DimockDimens.GUTTER_DP.dp),
+        ) {
             Text("Force a state", style = DimockType.SheetTitle, color = DimockTheme.colors.text)
             Spacer(Modifier.height(6.dp))
             Text(
@@ -84,32 +120,50 @@ fun ForceStateSheet(ui: DetailUi, customExpanded: Boolean = false, onApply: (For
                 style = DimockType.MonoSmall,
                 color = DimockTheme.colors.textMuted,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             Hairline(DimockTheme.colors.hairline)
 
-            PresetRow(Preset.STATUS, onApply = { onApply(ForceState(Preset.STATUS, status = status)) }) {
-                ChipRow(LocalPresets.STATUS_CHIPS.map { it.toString() }, selected = status.toString()) { status = it.toInt() }
+            val presets: @Composable () -> Unit = {
+                PresetRow(Preset.STATUS, onApply = { onApply(ForceState(Preset.STATUS, status = status)) }) {
+                    ChipRow(LocalPresets.STATUS_CHIPS.map { it.toString() }, selected = status.toString()) { status = it.toInt() }
+                }
+                PresetRow(Preset.TIMEOUT, onApply = { onApply(ForceState(Preset.TIMEOUT)) })
+                PresetRow(Preset.RESET, onApply = { onApply(ForceState(Preset.RESET)) })
+                PresetRow(Preset.SLOW, onApply = { onApply(ForceState(Preset.SLOW, delayMs = delay)) }) {
+                    ChipRow(LocalPresets.SLOW_DELAYS_MS.map(Labels::duration), selected = Labels.duration(delay)) { s -> delay = LocalPresets.SLOW_DELAYS_MS.first { Labels.duration(it) == s } }
+                }
             }
-            PresetRow(Preset.TIMEOUT, onApply = { onApply(ForceState(Preset.TIMEOUT)) })
-            PresetRow(Preset.RESET, onApply = { onApply(ForceState(Preset.RESET)) })
-            PresetRow(Preset.SLOW, onApply = { onApply(ForceState(Preset.SLOW, delayMs = delay)) }) {
-                ChipRow(LocalPresets.SLOW_DELAYS_MS.map(Labels::duration), selected = Labels.duration(delay)) { s -> delay = LocalPresets.SLOW_DELAYS_MS.first { Labels.duration(it) == s } }
+            val custom: @Composable () -> Unit = {
+                CustomRow(
+                    open = customOpen,
+                    status = customStatus,
+                    body = customBody,
+                    statusValid = customStatusValid,
+                    onToggle = { customOpen = !customOpen },
+                    onStatus = { customStatus = it.filter(Char::isDigit).take(3) },
+                    onBody = { customBody = it },
+                    onReset = { customStatus = (ui.tx.responseCode ?: 200).toString(); customBody = LocalPresets.capturedBody(ui.tx) },
+                    onApply = { onApply(ForceState(Preset.CUSTOM, status = customStatus.toInt(), body = customBody)) },
+                )
             }
-            CustomRow(
-                open = customOpen,
-                status = customStatus,
-                body = customBody,
-                statusValid = customStatusValid,
-                onToggle = { customOpen = !customOpen },
-                onStatus = { customStatus = it.filter(Char::isDigit).take(3) },
-                onBody = { customBody = it },
-                onReset = { customStatus = (ui.tx.responseCode ?: 200).toString(); customBody = LocalPresets.capturedBody(ui.tx) },
-                onApply = { onApply(ForceState(Preset.CUSTOM, status = customStatus.toInt(), body = customBody)) },
-            )
 
-            Spacer(Modifier.height(16.dp))
+            // Closed: the four one-tap presets, then Custom. Open: the editor takes the top of the now full-height
+            // sheet and the presets move below it — out of the way while typing, back with a scroll down.
+            if (customOpen) {
+                custom()
+                Hairline()
+                Spacer(Modifier.height(14.dp))
+                SectionLabel("OTHER OPTIONS")
+                Spacer(Modifier.height(2.dp))
+                presets()
+            } else {
+                presets()
+                custom()
+            }
+
+            Spacer(Modifier.height(12.dp))
             Text(
-                "One rule per endpoint: applying another option here replaces this one. Glob paths, header matches, times and sequences are authored by your agent or the CLI.",
+                "One rule per endpoint — applying another option replaces this one. Globs, header matches, times and sequences come from your agent or the CLI.",
                 style = DimockType.Caption,
                 color = DimockTheme.colors.textDim,
             )
@@ -118,23 +172,32 @@ fun ForceStateSheet(ui: DetailUi, customExpanded: Boolean = false, onApply: (For
     }
 }
 
+/** One preset: title, what it does, its parameter chips if any, an outlined Apply. Custom always follows, so every row ends in a hairline. */
 @Composable
-private fun PresetRow(preset: Preset, onApply: () -> Unit, last: Boolean = false, chips: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun PresetRow(preset: Preset, onApply: () -> Unit, chips: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f)) {
             Text(preset.title, style = DimockType.BodyStrong, color = DimockTheme.colors.text)
+            Spacer(Modifier.height(3.dp))
             Text(preset.description, style = DimockType.Caption, color = DimockTheme.colors.textMuted)
             if (chips != null) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 chips()
             }
         }
         OutlinedAction("Apply", color = DimockTheme.colors.accentText, onClick = onApply)
     }
-    if (!last) Hairline()
+    Hairline()
 }
 
-/** The one editable option: response status + body, pre-filled from the capture. Collapsed until tapped. */
+/**
+ * The one editable option: response status + body, pre-filled from the capture. Collapsed until tapped.
+ *
+ * Focus reaches a field before the keyboard does, so a single `bringIntoView` on focus would only fit the field
+ * into the pre-keyboard viewport. The request is repeated while the IME inset grows, and once more when the row
+ * opens, after the editor has had a layout pass.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CustomRow(
     open: Boolean,
@@ -147,60 +210,121 @@ private fun CustomRow(
     onReset: () -> Unit,
     onApply: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val colors = DimockTheme.colors
+    val scope = rememberCoroutineScope()
+    val statusRequester = remember { BringIntoViewRequester() }
+    val bodyRequester = remember { BringIntoViewRequester() }
+    var statusFocused by remember { mutableStateOf(false) }
+    var bodyFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(open) {
+        if (!open) return@LaunchedEffect
+        withFrameNanos { }
+        bodyRequester.bringIntoView()
+    }
+    val focusedField = when {
+        bodyFocused -> bodyRequester
+        statusFocused -> statusRequester
+        else -> null
+    }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(focusedField, imeBottom) {
+        if (focusedField != null && imeBottom > 0) focusedField.bringIntoView()
+    }
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(Preset.CUSTOM.title, style = DimockType.BodyStrong, color = DimockTheme.colors.text)
-                Text(Preset.CUSTOM.description, style = DimockType.Caption, color = DimockTheme.colors.textMuted)
+            Column(Modifier.weight(1f)) {
+                Text(Preset.CUSTOM.title, style = DimockType.BodyStrong, color = colors.text)
+                Spacer(Modifier.height(3.dp))
+                Text(Preset.CUSTOM.description, style = DimockType.Caption, color = colors.textMuted)
             }
-            if (open) OutlinedAction("Apply", color = DimockTheme.colors.accentText, enabled = statusValid, onClick = onApply)
+            if (open) FilledAction("Apply", enabled = statusValid, onClick = onApply)
             else OutlinedAction("Edit", onClick = onToggle)
         }
         if (!open) return@Column
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionLabel("STATUS")
-            Box(
+            // An invalid code shows a red edge in place of the well's own; the focus ring waits until it is valid again.
+            Well(
                 Modifier
                     .width(88.dp)
                     .height(40.dp)
-                    .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .border(1.dp, if (statusValid) DimockTheme.colors.hairline else DimockTheme.colors.status5xx, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.CenterStart,
+                    .bringIntoViewRequester(statusRequester)
+                    .then(if (statusValid) Modifier else Modifier.border(1.dp, colors.status5xx, controlShape)),
+                focused = statusFocused && statusValid,
             ) {
-                BasicTextField(
-                    value = status,
-                    onValueChange = onStatus,
-                    singleLine = true,
-                    textStyle = DimockType.MonoRow.copy(color = DimockTheme.colors.forStatus(status.toIntOrNull())),
-                    cursorBrush = SolidColor(DimockTheme.colors.accentText),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
+                Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {
+                    BasicTextField(
+                        value = status,
+                        onValueChange = onStatus,
+                        singleLine = true,
+                        textStyle = DimockType.MonoRow.copy(color = colors.forStatus(status.toIntOrNull())),
+                        cursorBrush = SolidColor(colors.accentText),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
+                            statusFocused = state.isFocused
+                            if (state.isFocused) scope.launch { statusRequester.bringIntoView() }
+                        },
+                    )
+                }
             }
-            Text(Labels.transport(status.toIntOrNull(), null).takeIf { statusValid } ?: "100–599", style = DimockType.Caption, color = DimockTheme.colors.textDim)
+            Text(Labels.transport(status.toIntOrNull(), null).takeIf { statusValid } ?: "100–599", style = DimockType.Caption, color = colors.textDim)
             Spacer(Modifier.weight(1f))
-            TextAction("Reset", color = DimockTheme.colors.textMuted, onClick = onReset)
+            TextAction("Reset", color = colors.textMuted, onClick = onReset)
         }
-        SectionLabel("BODY")
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 120.dp, max = 280.dp)
-                .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                .border(1.dp, DimockTheme.colors.hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                .padding(12.dp),
-        ) {
-            if (body.isEmpty()) Text("(empty body)", style = DimockType.MonoCode, color = DimockTheme.colors.textDim)
-            BasicTextField(
-                value = body,
-                onValueChange = onBody,
-                textStyle = DimockType.MonoCode.copy(color = DimockTheme.colors.text),
-                cursorBrush = SolidColor(DimockTheme.colors.accentText),
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("BODY")
+            Spacer(Modifier.weight(1f))
+            Text(
+                "${Labels.plural(body.count { it == '\n' } + 1, "line")} · ${Labels.bytes(body.length.toLong())}",
+                style = DimockType.SectionLabel,
+                color = colors.textDim,
             )
         }
-        Text("Headers and content type stay as captured. Body is sent verbatim — JSON is not validated.", style = DimockType.Caption, color = DimockTheme.colors.textDim)
+        Well(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 120.dp, max = 240.dp)
+                .bringIntoViewRequester(bodyRequester),
+            focused = bodyFocused,
+        ) {
+            Box(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                if (body.isEmpty()) Text("(empty body)", style = DimockType.MonoCode, color = colors.textDim)
+                BasicTextField(
+                    value = body,
+                    onValueChange = onBody,
+                    textStyle = DimockType.MonoCode.copy(color = colors.text),
+                    cursorBrush = SolidColor(colors.accentText),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .onFocusChanged { state ->
+                            bodyFocused = state.isFocused
+                            if (state.isFocused) scope.launch { bodyRequester.bringIntoView() }
+                        },
+                )
+            }
+        }
+        Text("Headers and content type stay as captured. Body is sent verbatim — JSON is not validated.", style = DimockType.Caption, color = colors.textDim)
     }
+}
+
+/** The 36 dp filled twin of [OutlinedAction]: the one Apply that commits an edit. A `control` fill while the edit is invalid. */
+@Composable
+private fun FilledAction(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+    val colors = DimockTheme.colors
+    Box(
+        Modifier
+            .heightIn(min = 36.dp)
+            .clip(controlShape)
+            .then(if (enabled) Modifier.accentFill(controlShape) else Modifier.background(colors.control, controlShape))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, style = DimockType.Label.copy(fontWeight = FontWeight.SemiBold), color = colors.onAccent) }
 }
 
 @Composable
@@ -221,21 +345,16 @@ fun CurlSheet(ui: DetailUi, onCopy: (String) -> Unit, onShare: (String) -> Unit,
         onDismissRequest = onDismiss,
         containerColor = DimockTheme.colors.surfaceRaised,
         contentColor = DimockTheme.colors.text,
-        shape = RoundedCornerShape(topStart = DimockDimens.RADIUS_SHEET_DP.dp, topEnd = DimockDimens.RADIUS_SHEET_DP.dp),
+        shape = sheetShape,
         dragHandle = { SheetHandle() },
     ) {
         Column(Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).navigationBarsPadding()) {
             Text("Share as cURL", style = DimockType.SheetTitle, color = DimockTheme.colors.text)
             Spacer(Modifier.height(14.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .background(DimockTheme.colors.surface, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .border(1.dp, DimockTheme.colors.hairline, RoundedCornerShape(DimockDimens.RADIUS_DP.dp))
-                    .padding(14.dp)
-                    .horizontalScroll(rememberScrollState()),
-            ) {
-                Text(ui.curl, style = DimockType.MonoCode, color = DimockTheme.colors.text, softWrap = false)
+            Well(Modifier.fillMaxWidth()) {
+                Box(Modifier.padding(14.dp).horizontalScroll(rememberScrollState())) {
+                    Text(ui.curl, style = DimockType.MonoCode, color = DimockTheme.colors.text, softWrap = false)
+                }
             }
             Spacer(Modifier.height(12.dp))
             Text(
@@ -257,10 +376,11 @@ fun CurlSheet(ui: DetailUi, onCopy: (String) -> Unit, onShare: (String) -> Unit,
     }
 }
 
+/** The grab handle: 36 x 4, `control` colour, fully rounded ends. */
 @Composable
 private fun SheetHandle() {
     Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(width = 36.dp, height = 3.dp).background(DimockTheme.colors.control, RoundedCornerShape(2.dp)))
+        Box(Modifier.size(width = 36.dp, height = 4.dp).background(DimockTheme.colors.control, RoundedCornerShape(DimockDimens.RADIUS_PILL_DP.dp)))
     }
 }
 

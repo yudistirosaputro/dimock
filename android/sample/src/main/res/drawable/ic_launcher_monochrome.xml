@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+): the same mark as one alpha silhouette, the cut kept open. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group>
+        <clip-path android:pathData="M-193.37,258.51 L285.81,-102.58 L105.26,-342.17 L-373.92,18.92 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M-191.81,260.58 L287.37,-100.51 L467.92,139.08 L-11.26,500.17 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+    </group>
+</vector>

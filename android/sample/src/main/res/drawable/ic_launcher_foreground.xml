@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The dimock mark: a lowercase d intercepted by one diagonal cut; the piece below the cut is the mocked part, in sand. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#C6F135" android:pathData="M38,38h32v32h-32z" />
+    <group>
+        <clip-path android:pathData="M-193.25,258.67 L285.93,-102.42 L105.38,-342.01 L-373.8,19.08 Z" />
+        <path android:fillColor="#E6E9ED" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M-191.93,260.42 L287.25,-100.67 L467.8,138.92 L-11.38,500.01 Z" />
+        <path android:fillColor="#D8C3A0" android:pathData="M46,41 H64 V29 H72 V69 A10,10 0 0 1 62,79 H46 A10,10 0 0 1 36,69 V51 A10,10 0 0 1 46,41 Z M48,49 A4,4 0 0 0 44,53 V67 A4,4 0 0 0 48,71 H60 A4,4 0 0 0 64,67 V53 A4,4 0 0 0 60,49 Z" />
+    </group>
 </vector>

@@ -147,7 +147,8 @@ object DimockNotification {
 
     private fun flags() = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
 
-    private val ACCENT = 0xFFC6F135.toInt()
+    /** The sand accent (docs/design/tokens.md). One value in both modes: the shade draws the tint, not dimock's surfaces. */
+    private val ACCENT = 0xFFD8C3A0.toInt()
 }
 
 /** Handles the notification's actions. Both are also available inside the inspector. */

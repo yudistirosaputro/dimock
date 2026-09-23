@@ -1,9 +1,11 @@
 package com.yudistirosaputro.dimock.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +24,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yudistirosaputro.dimock.core.engine.LocalPresets
 import com.yudistirosaputro.dimock.core.engine.RuleEntry
 import com.yudistirosaputro.dimock.core.model.Match
@@ -54,24 +57,26 @@ fun MocksScreen(
             "Rules armed on this device or pushed by your agent. Local rules win. Nothing here leaves the device.",
             style = DimockType.Caption,
             color = DimockTheme.colors.textDim,
-            modifier = Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).padding(bottom = 16.dp),
+            modifier = Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).padding(top = 8.dp, bottom = 14.dp),
         )
-        Hairline(DimockTheme.colors.hairline)
         if (state.rules.isEmpty()) {
             EmptyState("No mocks yet", "Open a call and tap Mock this, or push rules from your agent.")
         } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(state.rules, key = { it.id }) { row ->
-                    RuleRowItem(row, highlighted = row.id == highlightId, onToggle = { onToggle(row.id, it) }, onReset = { onReset(row.id) }, onRemove = { onRemove(row.id) })
-                }
-            }
+            RuleList(state.rules, highlightId, onToggle, onReset, onRemove)
+            Text(
+                "Tap a row to toggle it, long-press to remove it.",
+                style = DimockType.Caption,
+                color = DimockTheme.colors.textDim,
+                modifier = Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp).padding(top = 8.dp),
+            )
+            Spacer(Modifier.height(DimockDimens.BAR_CLEARANCE_DP.dp))
         }
     }
 }
 
 @Composable
 private fun Header(state: InspectorState, onSetAll: (Boolean) -> Unit, onClearAll: () -> Unit) {
-    Column(Modifier.padding(start = DimockDimens.GUTTER_DP.dp, end = 12.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.padding(start = DimockDimens.GUTTER_DP.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Wordmark()
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,59 +92,71 @@ private fun Header(state: InspectorState, onSetAll: (Boolean) -> Unit, onClearAl
                     withStyle(SpanStyle(color = DimockTheme.colors.control)) { append("/${state.rules.size}") }
                 },
                 style = DimockType.HeaderCount,
+                // Sand means "mocked": a count of zero has nothing mocked to point at, so it reads muted.
                 color = if (state.activeMocks > 0) DimockTheme.colors.accentText else DimockTheme.colors.textMuted,
             )
             Text("rules active", style = DimockType.Body, color = DimockTheme.colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
         }
-        Spacer(Modifier.height(0.dp))
+    }
+}
+
+/**
+ * The rules in one grouped card. It wraps its rows and stops at the space left above the caption, so a long list
+ * scrolls inside the card while the caption and the bar clearance stay put below it.
+ */
+@Composable
+private fun ColumnScope.RuleList(rows: List<RuleRow>, highlightId: String?, onToggle: (String, Boolean) -> Unit, onReset: (String) -> Unit, onRemove: (String) -> Unit) {
+    GroupCard(Modifier.fillMaxWidth().weight(1f, fill = false).padding(horizontal = DimockDimens.INSET_DP.dp)) {
+        LazyColumn {
+            itemsIndexed(rows, key = { _, row -> row.id }) { index, row ->
+                if (index > 0) InsetDivider(start = 16.dp)
+                RuleRowItem(row, highlighted = row.id == highlightId, onToggle = { onToggle(row.id, it) }, onReset = { onReset(row.id) }, onRemove = { onRemove(row.id) })
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RuleRowItem(row: RuleRow, highlighted: Boolean, onToggle: (Boolean) -> Unit, onReset: () -> Unit, onRemove: () -> Unit) {
-    val marker = when {
-        row.spent -> DimockTheme.colors.status4xx
-        row.enabled -> DimockTheme.colors.accentText
-        else -> DimockTheme.colors.hairline
-    }
+    val colors = DimockTheme.colors
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = DimockDimens.ROW_HEIGHT_DP.dp)
-            .combinedClickable(onClick = { if (!row.spent) onToggle(!row.enabled) }, onLongClick = onRemove),
+            .then(if (highlighted) Modifier.background(colors.accentSoft) else Modifier)
+            .combinedClickable(onClick = { if (!row.spent) onToggle(!row.enabled) }, onLongClick = onRemove)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        MarkerColumn(mocked = true, color = if (highlighted) DimockTheme.colors.text else marker)
-        Column(
-            Modifier.weight(1f).padding(start = 17.dp, end = DimockDimens.GUTTER_DP.dp, top = 14.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(row.title, style = DimockType.BodyStrong, color = if (row.enabled || row.spent) DimockTheme.colors.text else DimockTheme.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = DimockTheme.colors.textDim)) { append(row.method); append(' ') }
-                            append(row.path)
-                            withStyle(SpanStyle(color = DimockTheme.colors.textDim)) { append("  →  ") }
-                            withStyle(SpanStyle(color = DimockTheme.colors.forTone(row.effectTone))) { append(row.effect) }
-                        },
-                        style = DimockType.MonoSmall.copy(fontSize = DimockType.MonoRow.fontSize),
-                        color = DimockTheme.colors.textMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (row.spent) OutlinedAction("Reset", color = DimockTheme.colors.status4xx, onClick = onReset) else DimockSwitch(row.enabled, onToggle)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                row.meta.forEach { part ->
-                    Text(part, style = DimockType.MonoSmall, color = if (row.spent && part.startsWith("0 of")) DimockTheme.colors.status4xx else DimockTheme.colors.textDim)
-                }
-            }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(row.title, style = DimockType.BodyStrong, color = if (row.enabled || row.spent) colors.text else colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = colors.textDim)) { append(row.method); append(' ') }
+                    append(row.path)
+                    withStyle(SpanStyle(color = colors.textDim)) { append(" → ") }
+                    withStyle(SpanStyle(color = colors.forTone(row.effectTone))) { append(row.effect) }
+                },
+                style = DimockType.MonoSmall.copy(fontSize = 13.5.sp),
+                color = colors.textMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                buildAnnotatedString {
+                    row.meta.forEachIndexed { index, part ->
+                        if (index > 0) append(" · ")
+                        if (row.spent && part.startsWith("0 of")) withStyle(SpanStyle(color = colors.status4xx)) { append(part) } else append(part)
+                    }
+                },
+                style = DimockType.MonoSmall.copy(fontSize = 11.5.sp),
+                color = colors.textDim,
+            )
         }
+        if (row.spent) OutlinedAction("Reset", color = colors.status4xx, onClick = onReset) else DimockSwitch(row.enabled, onToggle)
     }
-    Hairline()
 }
 
 // ---- previews ---------------------------------------------------------------------------------------------
@@ -149,8 +166,8 @@ private const val PREVIEW_NOW = PREVIEW_T0 + 6_000
 
 /**
  * All three origins at once — two rules armed from the sheet, one pushed by the agent with a `times` budget
- * left, one spent and offering Reset. That is the row set that proves the marker, the switch and the counters
- * still read correctly side by side.
+ * left, one spent and offering Reset. That is the row set that proves the switch, the Reset action and the
+ * counters still read correctly side by side.
  */
 private val previewRuleRows = listOf(
     RuleRow.from(

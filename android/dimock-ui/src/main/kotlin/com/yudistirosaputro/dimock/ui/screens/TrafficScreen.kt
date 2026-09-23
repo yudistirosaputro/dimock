@@ -12,25 +12,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yudistirosaputro.dimock.core.engine.Labels
@@ -56,23 +53,18 @@ fun TrafficScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(start = DimockDimens.GUTTER_DP.dp, end = 12.dp, top = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = DimockDimens.GUTTER_DP.dp).padding(top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Wordmark(state.app)
         }
         StatusBar(state.recording, state.totalCalls, onRecording, onClear)
-        Column(Modifier.padding(horizontal = DimockDimens.GUTTER_DP.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SearchField(state.search, hint = "Filter by path", modifier = Modifier.fillMaxWidth(), onChange = onSearch)
-            FilterChips(state.filters, onFilters)
-        }
-        Spacer(Modifier.height(12.dp))
-        Hairline(DimockTheme.colors.hairline)
+        // The field and the chips sit in a 16 dp gutter, not the 20 dp one: they line up with the grouped list below.
+        SearchField(state.search, hint = "Filter by path", modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), onChange = onSearch)
+        FilterChips(state.filters, onFilters)
         when {
-            state.rows.isNotEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
-                items(state.rows, key = { it.id }) { row -> TrafficRowItem(row) { onOpen(row) } }
-            }
+            state.rows.isNotEmpty() -> TrafficList(state.rows, onOpen)
             state.totalCalls == 0 -> EmptyState("No traffic yet", "Use the app; every request shows up here live.")
             else -> EmptyState("No matching calls", "Clear the search or the filters to see everything captured.")
         }
@@ -82,8 +74,9 @@ fun TrafficScreen(
 @Composable
 private fun StatusBar(recording: Boolean, calls: Int, onRecording: (Boolean) -> Unit, onClear: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = DimockDimens.GUTTER_DP.dp, end = 12.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = DimockDimens.GUTTER_DP.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(
             Modifier.heightIn(min = DimockDimens.TAP_TARGET_DP.dp).clickable { onRecording(!recording) },
@@ -93,27 +86,34 @@ private fun StatusBar(recording: Boolean, calls: Int, onRecording: (Boolean) -> 
             RecordingDot(recording)
             Text(if (recording) "Recording" else "Paused", style = DimockType.Label, color = if (recording) DimockTheme.colors.text else DimockTheme.colors.status4xx)
         }
-        Spacer(Modifier.width(14.dp))
         Text(Labels.plural(calls, "call"), style = DimockType.MonoSmall, color = DimockTheme.colors.textMuted, modifier = Modifier.weight(1f))
         OutlinedAction("Clear", enabled = calls > 0, onClick = onClear)
     }
 }
 
+/** A record light: an 8 dp red circle in a soft ring while recording, a still dim dot when paused. Never the accent. */
 @Composable
 private fun RecordingDot(recording: Boolean) {
+    val colors = DimockTheme.colors
     val pulse = rememberInfiniteTransition(label = "rec")
     val alpha by pulse.animateFloat(1f, 0.35f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "recAlpha")
+    // 14 dp in both states so the label never shifts; the ring is outside the pulse so only the dot breathes.
     Box(
         Modifier
-            .size(8.dp)
+            .size(14.dp)
+            .then(if (recording) Modifier.background(colors.status5xx.copy(alpha = 0.18f), CircleShape) else Modifier)
+            .padding(3.dp)
             .alpha(if (recording) alpha else 1f)
-            .background(if (recording) DimockTheme.colors.accentText else DimockTheme.colors.textDim, RoundedCornerShape(2.dp)),
+            .background(if (recording) colors.status5xx else colors.textDim, CircleShape),
     )
 }
 
 @Composable
 private fun FilterChips(filters: TrafficFilters, onFilters: (TrafficFilters) -> Unit) {
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Chip("All", filters.isEmpty) { onFilters(TrafficFilters()) }
         Chip("GET", "GET" in filters.methods) { onFilters(filters.toggleMethod("GET")) }
         Chip("POST", "POST" in filters.methods) { onFilters(filters.toggleMethod("POST")) }
@@ -127,32 +127,52 @@ private fun FilterChips(filters: TrafficFilters, onFilters: (TrafficFilters) -> 
     }
 }
 
-/** 68 dp row: accent edge when mocked · method · status · path + second line · duration. */
+/**
+ * The captures, in one grouped card. The clearance for the floating bar is padding *around* the card, so the card
+ * ends above the bar instead of scrolling its last row underneath it.
+ */
+@Composable
+private fun TrafficList(rows: List<TrafficRow>, onOpen: (TrafficRow) -> Unit) {
+    GroupCard(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = DimockDimens.INSET_DP.dp, end = DimockDimens.INSET_DP.dp, bottom = DimockDimens.BAR_CLEARANCE_DP.dp),
+    ) {
+        LazyColumn {
+            itemsIndexed(rows, key = { _, row -> row.id }) { index, row ->
+                if (index > 0) InsetDivider()
+                TrafficRowItem(row) { onOpen(row) }
+            }
+        }
+    }
+}
+
+/** 72 dp row: status column (code over method) · path + second line · duration. Mocked rows carry the MOCK badge only. */
 @Composable
 private fun TrafficRowItem(row: TrafficRow, onClick: () -> Unit) {
     val colors = DimockTheme.colors
-    Row(Modifier.fillMaxWidth().heightIn(min = DimockDimens.ROW_HEIGHT_DP.dp).clickable(onClick = onClick)) {
-        MarkerColumn(row.mocked)
-        Row(
-            Modifier.weight(1f).padding(start = 17.dp, end = DimockDimens.GUTTER_DP.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(Modifier.width(46.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.status, style = DimockType.MonoRow.copy(fontWeight = FontWeight.SemiBold), color = colors.forTone(row.statusTone))
-                Text(row.method, style = DimockType.MockTag, color = colors.forTone(row.methodTone))
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.path, style = DimockType.MonoRow, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (row.mocked) MockTag()
-                    Text(row.secondary, style = DimockType.Caption, color = colors.forTone(row.secondaryTone), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Text(row.duration, style = DimockType.MonoSmall, color = colors.textMuted)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = DimockDimens.ROW_HEIGHT_DP.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.width(48.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(row.status, style = DimockType.MonoStatus, color = colors.forTone(row.statusTone))
+            Text(row.method, style = DimockType.MonoTiny, color = colors.forTone(row.methodTone))
         }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(row.path, style = DimockType.MonoRow, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (row.mocked) MockTag()
+                Text(row.secondary, style = DimockType.Caption, color = colors.forTone(row.secondaryTone), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Text(row.duration, style = DimockType.MonoSmall, color = colors.textMuted)
     }
-    Hairline()
 }
 
 // ---- previews ---------------------------------------------------------------------------------------------
@@ -261,7 +281,7 @@ private fun TrafficNoMatchesPreview() = PreviewPanel {
     )
 }
 
-/** Paused: the dot stops pulsing, the label turns amber, and the frozen list lags the call counter. */
+/** Paused: the dot goes still and dim, the label turns the softened 4xx red, and the frozen list lags the call counter. */
 @InspectorPreviews
 @Composable
 private fun TrafficPausedPreview() = PreviewPanel {
