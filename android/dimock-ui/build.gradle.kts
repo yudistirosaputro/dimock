@@ -69,8 +69,14 @@ val checkPreviewCoverage by tasks.registering {
         val sources = sourceDir.asFile.walkTopDown().filter { it.extension == "kt" }.toList()
         check(sources.isNotEmpty()) { "dimock-ui has no sources: ${sourceDir.asFile} holds no Kotlin files" }
 
-        // Comments go first, so a preview commented out reads as absent rather than as still covering its screen.
-        val stripped = sources.map { it.readText().replace(Regex("/\\*[\\s\\S]*?\\*/"), "").replace(Regex("//[^\\n]*"), "") }
+        // String literals go first — a glob like "/users/*/albums" in a fixture must not open a "comment" — then
+        // comments, so a preview commented out reads as absent rather than as still covering its screen.
+        val stripped = sources.map {
+            it.readText()
+                .replace(Regex("\"\"\"[\\s\\S]*?\"\"\"|\"(?:\\\\.|[^\"\\\\\\n])*\""), "\"\"")
+                .replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
+                .replace(Regex("//[^\\n]*"), "")
+        }
 
         val declaration = stripped.firstOrNull { it.contains("annotation class InspectorPreviews") }
         check(declaration != null) { "dimock-ui previews need the $annotation multipreview annotation in src/main/kotlin" }
