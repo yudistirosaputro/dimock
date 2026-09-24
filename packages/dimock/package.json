@@ -1,6 +1,6 @@
 {
   "name": "dimock",
-  "version": "0.1.0-alpha01",
+  "version": "0.1.0-alpha02",
   "description": "Agent-native Android HTTP inspector and mock injector: CLI and MCP server for the dimock Android library.",
   "license": "Apache-2.0",
   "type": "module",

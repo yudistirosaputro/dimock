@@ -25,7 +25,7 @@ object Dimock {
         val inspectorTheme: InspectorTheme = InspectorTheme.System,
     )
 
-    const val VERSION = "0.1.0-alpha01"
+    const val VERSION = "0.1.0-alpha02"
 
     private val passThrough = Interceptor { chain -> chain.proceed(chain.request()) }
 
