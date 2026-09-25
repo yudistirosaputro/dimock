@@ -38,6 +38,23 @@ agent:  captures_list → mock_from_capture(empty) → "reload the screen"
 
 Status: **0.1.0.** Engine, wire protocol, CLI and MCP server are tested, and the Android modules have run in a production-style app (XML views, Retrofit, Hilt, Paging 3) on Android 16. Feedback welcome.
 
+<table>
+  <tr>
+    <td width="20%"><img src="docs/screenshots/inspector-traffic.png" alt="Traffic tab: real calls and a mocked 500, tagged MOCK"></td>
+    <td width="20%"><img src="docs/screenshots/inspector-force-state.png" alt="Force a state sheet: Status, Timeout, Connection reset, Slow, Custom response"></td>
+    <td width="20%"><img src="docs/screenshots/sample-forced-500.png" alt="The app's own error state after the forced 500"></td>
+    <td width="20%"><img src="docs/screenshots/inspector-mocks.png" alt="Mocks tab: a rule set on the phone and one pushed by the agent"></td>
+    <td width="20%"><img src="docs/screenshots/inspector-agent.png" alt="Agent tab: connection, write switch and activity log"></td>
+  </tr>
+  <tr>
+    <td><sub><b>Traffic.</b> Every call, real or mocked.</sub></td>
+    <td><sub><b>Mock this.</b> Force a status, timeout, reset, delay or custom body on this endpoint.</sub></td>
+    <td><sub><b>The app reacts.</b> Its real error state, no backend change.</sub></td>
+    <td><sub><b>Mocks.</b> Rules from the phone (<code>local</code>) and from your agent, with hits and <code>times</code> left.</sub></td>
+    <td><sub><b>Agent.</b> Who is connected, what they read or changed, and a switch to make them read-only.</sub></td>
+  </tr>
+</table>
+
 ## Why
 
 | | Chucker | dimock |
