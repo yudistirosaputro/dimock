@@ -36,7 +36,7 @@ agent:  captures_list → mock_from_capture(empty) → "reload the screen"
         → mock_from_capture(error) → "reload again" → logcat_tail → mock_clear
 ```
 
-Status: **0.1.0-alpha02.** Engine, wire protocol, CLI and MCP server are tested; the Android modules are being validated on real projects. Feedback welcome.
+Status: **0.1.0.** Engine, wire protocol, CLI and MCP server are tested, and the Android modules have run in a production-style app (XML views, Retrofit, Hilt, Paging 3) on Android 16. Feedback welcome.
 
 ## Why
 
@@ -56,8 +56,8 @@ Status: **0.1.0-alpha02.** Engine, wire protocol, CLI and MCP server are tested;
 **1. Gradle** (app module)
 
 ```kotlin
-debugImplementation("io.github.yudistirosaputro:dimock-ui:0.1.0-alpha02")            // interceptor + in-app inspector
-releaseImplementation("io.github.yudistirosaputro:dimock-okhttp-no-op:0.1.0-alpha02") // same API, does nothing
+debugImplementation("io.github.yudistirosaputro:dimock-ui:0.1.0")            // interceptor + in-app inspector
+releaseImplementation("io.github.yudistirosaputro:dimock-okhttp-no-op:0.1.0") // same API, does nothing
 ```
 
 No Compose in the app? Use `dimock-okhttp` instead of `dimock-ui`.
