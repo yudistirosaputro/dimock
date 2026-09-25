@@ -93,7 +93,7 @@ class DisplayModelsTest {
         assertThat((ui.response.body as BodyView.Text).pretty).isEqualTo("{\n  \"a\": 1\n}")
         assertThat(ui.request.headers.first { it.name == "Authorization" }.redacted).isTrue()
         assertThat(ui.redactedHeaders).containsExactly("Authorization")
-        assertThat(ui.curl).startsWith("curl -X GET https://h/posts?x=1")
+        assertThat(ui.curl).startsWith("curl -X GET 'https://h/posts?x=1'")
         assertThat(ui.curl).doesNotContain("Bearer")
         assertThat(ui.truncationNote).isNull()
     }
