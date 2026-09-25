@@ -38,20 +38,45 @@ agent:  captures_list → mock_from_capture(empty) → "reload the screen"
 
 Status: **0.1.0.** Engine, wire protocol, CLI and MCP server are tested, and the Android modules have run in a production-style app (XML views, Retrofit, Hilt, Paging 3) on Android 16. Feedback welcome.
 
+**From the phone.** Open the inspector from the notification, pick a call, force a state.
+
 <table>
   <tr>
-    <td width="20%"><img src="docs/screenshots/inspector-traffic.png" alt="Traffic tab: real calls and a mocked 500, tagged MOCK"></td>
-    <td width="20%"><img src="docs/screenshots/inspector-force-state.png" alt="Force a state sheet: Status, Timeout, Connection reset, Slow, Custom response"></td>
-    <td width="20%"><img src="docs/screenshots/sample-forced-500.png" alt="The app's own error state after the forced 500"></td>
-    <td width="20%"><img src="docs/screenshots/inspector-mocks.png" alt="Mocks tab: a rule set on the phone and one pushed by the agent"></td>
-    <td width="20%"><img src="docs/screenshots/inspector-agent.png" alt="Agent tab: connection, write switch and activity log"></td>
+    <td width="25%"><img src="docs/screenshots/inspector-traffic.png" alt="Traffic tab: real calls and a mocked 500, tagged MOCK"></td>
+    <td width="25%"><img src="docs/screenshots/inspector-force-state.png" alt="Force a state sheet: Status, Timeout, Connection reset, Slow, Custom response"></td>
+    <td width="25%"><img src="docs/screenshots/sample-forced-500.png" alt="The app's own error state after the forced 500"></td>
+    <td width="25%"><img src="docs/screenshots/inspector-mocks.png" alt="Mocks tab: a rule set on the phone and one pushed by the agent"></td>
   </tr>
   <tr>
     <td><sub><b>Traffic.</b> Every call, real or mocked.</sub></td>
-    <td><sub><b>Mock this.</b> Force a status, timeout, reset, delay or custom body on this endpoint.</sub></td>
+    <td><sub><b>Mock this.</b> Status, timeout, reset, delay or a custom body on this endpoint.</sub></td>
     <td><sub><b>The app reacts.</b> Its real error state, no backend change.</sub></td>
     <td><sub><b>Mocks.</b> Rules from the phone (<code>local</code>) and from your agent, with hits and <code>times</code> left.</sub></td>
-    <td><sub><b>Agent.</b> Who is connected, what they read or changed, and a switch to make them read-only.</sub></td>
+  </tr>
+</table>
+
+**From your agent.** The same states, derived from a real capture over MCP or the CLI. No tapping in the inspector:
+
+```bash
+npx dimock mock from --path /posts --method GET empty
+npx dimock mock from --path /posts --method GET error --status 503 --body '{"success":false,"status_message":"Service under maintenance"}'
+npx dimock mock from --path /posts --method GET timeout --times 1
+```
+
+<table>
+  <tr>
+    <td width="20%"><img src="docs/screenshots/agent-empty.png" alt="The app's empty state from the agent's empty variant"></td>
+    <td width="20%"><img src="docs/screenshots/agent-error-body.png" alt="A 503 served by the agent's rule with the agent's own JSON body"></td>
+    <td width="20%"><img src="docs/screenshots/agent-timeout.png" alt="SocketTimeoutException from the agent's one-shot timeout rule"></td>
+    <td width="20%"><img src="docs/screenshots/agent-traffic.png" alt="Traffic tab: the three agent mocks above the real call"></td>
+    <td width="20%"><img src="docs/screenshots/agent-activity.png" alt="Agent tab: Claude Code connected, with every read and rule change logged"></td>
+  </tr>
+  <tr>
+    <td><sub><b>empty.</b> Arrays emptied, envelope kept.</sub></td>
+    <td><sub><b>error.</b> The API's own error body, served by the agent's rule.</sub></td>
+    <td><sub><b>timeout.</b> One shot (<code>times: 1</code>); the next reload is real again.</sub></td>
+    <td><sub><b>Traffic.</b> Each mocked call names the rule that answered.</sub></td>
+    <td><sub><b>Agent.</b> Who is connected and everything it read or changed; one switch makes it read-only.</sub></td>
   </tr>
 </table>
 
