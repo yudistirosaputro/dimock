@@ -18,9 +18,9 @@ mock_from_capture, mock_toggle, mock_clear, logcat_tail, agent_activity). Withou
 \`npx dimock <command> --json\`.
 
 Workflow for testing a screen's states without a backend:
-1. Ask the human to open the screen once, then \`captures_list\` to find the real call.
+1. Open the screen once (with your device tool if you have one, else ask the human), then \`captures_list\` to find the real call.
 2. \`mock_from_capture\` with variant error | empty | slow | timeout | malformed (dryRun first if unsure).
-3. Ask the human to reload the screen; \`logcat_tail pattern:"FATAL|Exception"\` if it misbehaves.
+3. Reload the screen (device tool, else ask the human) and check it; \`logcat_tail pattern:"FATAL|Exception"\` if it misbehaves.
 4. \`mock_clear\` when finished. Never leave mocks active at the end of a task.
 
 Rules format: https://github.com/yudistirosaputro/dimock/blob/main/docs/rule-format.md
