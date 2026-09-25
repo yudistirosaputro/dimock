@@ -35,7 +35,8 @@ object CurlFormat {
         else -> null
     }
 
-    private val bare = Regex("^[A-Za-z0-9_\\-./:=@?&%+,]+$")
+    /** Characters no shell treats specially; `?`, `*` (glob) and `&` (background) force quoting. */
+    private val bare = Regex("^[A-Za-z0-9_\\-./:=@%+,]+$")
 
     private fun quote(s: String) = if (bare.matches(s)) s else "'" + s.replace("'", "'\\''") + "'"
 }

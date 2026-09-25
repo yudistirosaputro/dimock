@@ -231,4 +231,12 @@ class CurlFormatTest {
         assertEquals(listOf("Authorization"), CurlFormat.redactedHeaders(t))
         assertFalse(CurlFormat.hasRedacted(tx()))
     }
+
+    @Test
+    fun `curl quotes URLs with query strings and globs so they paste into a shell`() {
+        val query = tx(path = "/discover/movie?language=en-US&with_genres=%2C12%2C16&page=1", requestHeaders = emptyMap())
+        assertEquals("curl -X GET 'https://jsonplaceholder.typicode.com/discover/movie?language=en-US&with_genres=%2C12%2C16&page=1'", CurlFormat.format(query))
+        assertEquals("curl -X GET 'https://jsonplaceholder.typicode.com/files/*'", CurlFormat.format(tx(path = "/files/*", requestHeaders = emptyMap())))
+        assertEquals("curl -X GET https://jsonplaceholder.typicode.com/posts", CurlFormat.format(tx(requestHeaders = emptyMap())))
+    }
 }
