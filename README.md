@@ -88,6 +88,7 @@ npx dimock init
 npx dimock connect --app com.your.app
 npx dimock capture list
 npx dimock mock from <captureId> empty
+npx dimock mock from --path /v1/orders error   # newest capture of that path
 ```
 
 **4. Look at it on the device.** Pull down the notification — `dimock · 12 calls`, the newest calls listed — and tap it, like Chucker. On Android 13+ request `POST_NOTIFICATIONS` once (the sample shows the one line). Without the permission: `Dimock.launch(context)` from a debug menu, or shake the phone with `<meta-data android:name="com.yudistirosaputro.dimock.SHAKE_TO_OPEN" android:value="true" />` (or `Config(shakeToOpen = true)`). The inspector follows the system dark/light setting with its own palette for each, never the host app's colours; pin one with `Config(inspectorTheme = InspectorTheme.Dark)`.

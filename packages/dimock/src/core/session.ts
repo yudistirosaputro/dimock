@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
 import { Adb, type Device } from "./adb.js";
 import { asCurl } from "./curl.js";
 import { loadRulesFile, parseRules, validateRule } from "./rules.js";
@@ -42,6 +44,24 @@ export interface Resolved {
   device?: string;
   app: string;
   baseUrl: string;
+}
+
+export interface CaptureSource {
+  captureId?: string;
+  /** Glob or `re:` regex; the newest real (not mocked) capture matching it is used. */
+  path?: string;
+  method?: string;
+}
+
+export interface MockFromOptions {
+  dryRun?: boolean;
+  times?: number;
+  delayMs?: number;
+  id?: string;
+  status?: number;
+  body?: string;
+  /** Path to a file whose content becomes the body, relative to the working directory. */
+  bodyFile?: string;
 }
 
 export class AmbiguousTargetError extends DimockError {
@@ -199,19 +219,35 @@ export class Session {
     return { removed: id ?? "all" };
   }
 
-  /** Build a rule from a capture; apply it unless dryRun. */
+  /**
+   * Build a rule from a capture (by id, or the newest real capture matching `path`); apply it unless dryRun.
+   * Without an explicit body, `error` and `unauthorized` reuse the body of a real 4xx/5xx from the same host,
+   * so the app's error parser meets the API's own error shape.
+   */
   async mockFromCapture(
     spec: TargetSpec | undefined,
-    captureId: string,
+    source: string | CaptureSource,
     variant: Variant,
-    options: { dryRun?: boolean; times?: number; delayMs?: number; id?: string } = {},
-  ): Promise<{ rule: Rule; applied: RuleEntry | null }> {
+    options: MockFromOptions = {},
+  ): Promise<{ rule: Rule; applied: RuleEntry | null; captureId: string; bodyFrom?: string }> {
+    const { captureId, path, method } = typeof source === "string" ? { captureId: source } : source;
+    if (captureId && path) throw new DimockError("give a capture id or a path, not both", "invalid_input");
+    if (!captureId && !path) throw new DimockError("mock from needs a capture id or --path <glob>", "invalid_input");
+    if (options.body !== undefined && options.bodyFile) throw new DimockError("give body or bodyFile, not both", "invalid_input");
     const r = await this.resolve(spec);
-    const tx = await r.client.getTransaction(captureId);
-    const rule = ruleFromCapture(tx, variant, options);
-    if (options.dryRun) return { rule, applied: null };
-    const applied = await r.client.addRule(rule);
-    return { rule, applied };
+    const id = captureId ?? (await this.newestCapture(r.client, path!, method));
+    const tx = await r.client.getTransaction(id);
+    let body = options.body ?? (options.bodyFile ? await readBodyFile(options.bodyFile) : undefined);
+    let contentType: string | undefined;
+    let bodyFrom: string | undefined;
+    if (body === undefined && (variant === "error" || variant === "unauthorized")) {
+      const template = await this.realErrorBody(r.client, tx.host, variant === "unauthorized" ? 401 : 500);
+      if (template) ({ body, contentType, id: bodyFrom } = template);
+    }
+    const rule = ruleFromCapture(tx, variant, { id: options.id, times: options.times, delayMs: options.delayMs, status: options.status, body, contentType });
+    const result = { rule, captureId: id, ...(bodyFrom ? { bodyFrom } : {}) };
+    if (options.dryRun) return { ...result, applied: null };
+    return { ...result, applied: await r.client.addRule(rule) };
   }
 
   async activity(spec?: TargetSpec, limit?: number): Promise<Activity[]> {
@@ -236,6 +272,25 @@ export class Session {
 
   private client(baseUrl: string): WireClient {
     return new WireClient({ baseUrl, clientName: this.clientName, fetchImpl: this.fetchImpl });
+  }
+
+  private async newestCapture(client: WireClient, path: string, method?: string): Promise<string> {
+    const [newest] = await client.listTransactions({ path, method, mocked: false, limit: 1 });
+    if (!newest) throw new DimockError(`no real capture matches ${method ? `${method} ` : ""}${path}. Open the screen once, then retry.`, "no_capture");
+    return newest.id;
+  }
+
+  /** Body of the newest real error response from `host`: same status first, then same class, then any 4xx/5xx. */
+  private async realErrorBody(client: WireClient, host: string, status: number): Promise<{ id: string; body: string; contentType?: string } | undefined> {
+    const errors = (await client.listTransactions({ mocked: false, limit: 200 })).filter((t) => t.host === host && (t.responseCode ?? 0) >= 400);
+    const rank = (code: number) => (code === status ? 0 : Math.floor(code / 100) === Math.floor(status / 100) ? 1 : 2);
+    errors.sort((a, b) => rank(a.responseCode!) - rank(b.responseCode!));
+    for (const candidate of errors) {
+      const tx = await client.getTransaction(candidate.id);
+      const b = tx.responseBody;
+      if (b && b.kind !== "binary" && b.text.trim() !== "") return { id: tx.id, body: b.text, contentType: "contentType" in b ? b.contentType : undefined };
+    }
+    return undefined;
   }
 
   private async rulesFrom(input: { file?: string; text?: string; rules?: Rule[] }): Promise<Rule[]> {
@@ -283,5 +338,13 @@ export class Session {
     const local = await this.adb.forward(serial, port, 0);
     this.forwards.set(key, local);
     return local;
+  }
+}
+
+async function readBodyFile(file: string): Promise<string> {
+  try {
+    return await readFile(resolvePath(file), "utf8");
+  } catch {
+    throw new DimockError(`body file not found: ${file}`, "invalid_input");
   }
 }

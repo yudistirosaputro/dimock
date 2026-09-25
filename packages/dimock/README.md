@@ -18,7 +18,7 @@ npx dimock init                    # writes .mcp.json / .cursor rules / AGENTS.m
 npx dimock mcp                     # stdio MCP server, 14 tools
 ```
 
-Needs Node 20+, `adb` on `PATH`, and a debug build of the app with the `dimock` Android library installed. Nothing leaves your machine: the device binds `127.0.0.1` only and is reached through `adb forward`.
+Needs Node 20+, `adb` (found on `PATH`, through `ANDROID_HOME`, or in Android Studio's default SDK), and a debug build of the app with the `dimock` Android library installed. Nothing leaves your machine: the device binds `127.0.0.1` only and is reached through `adb forward`.
 
 Full documentation, the Android quick start and the wire protocol: **https://github.com/yudistirosaputro/dimock**
 

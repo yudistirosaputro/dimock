@@ -188,11 +188,18 @@ export const tools = [
     name: "mock_from_capture",
     title: "Mock from capture",
     description:
-      "Derive a rule from a real capture and apply it: error (500), unauthorized (401), empty (200 with emptied arrays), slow (same body, +3 s), timeout, malformed. Use dryRun to review the rule first.",
+      "Derive a rule from a real capture and apply it: error (500), unauthorized (401), empty (200 with emptied arrays), slow (same body, +3 s), timeout, malformed. " +
+      "Pick the capture by captureId, or by path (the newest real capture matching it). Without body, error and unauthorized reuse the body of a real 4xx/5xx from the same host; " +
+      "status, body or bodyFile adjust error, unauthorized, empty and slow. Use dryRun to review the rule first.",
     inputSchema: {
       ...targetShape,
-      captureId: z.string(),
+      captureId: z.string().optional().describe("capture id from captures_list; or give path"),
+      path: z.string().optional().describe("glob or `re:` regex; the newest real capture matching it is used"),
+      method: z.string().optional().describe("with path: only captures with this method"),
       variant: z.enum(VARIANTS as [string, ...string[]]),
+      status: z.number().int().min(100).max(599).optional().describe("replace the variant's status"),
+      body: z.string().optional().describe("replace the variant's body"),
+      bodyFile: z.string().optional().describe("replace the variant's body with this file (path relative to the working directory)"),
       dryRun: z.boolean().optional(),
       times: z.number().int().min(1).optional().describe("consume the rule after N hits"),
       delayMs: z.number().int().min(0).optional(),
@@ -200,10 +207,19 @@ export const tools = [
     },
     readOnly: false,
     run: async (s, i) => {
-      const r = await s.mockFromCapture(target(i), i.captureId, i.variant as (typeof VARIANTS)[number], { dryRun: i.dryRun, times: i.times, delayMs: i.delayMs, id: i.id });
+      const r = await s.mockFromCapture(target(i), { captureId: i.captureId, path: i.path, method: i.method }, i.variant as (typeof VARIANTS)[number], {
+        dryRun: i.dryRun,
+        times: i.times,
+        delayMs: i.delayMs,
+        id: i.id,
+        status: i.status,
+        body: i.body,
+        bodyFile: i.bodyFile,
+      });
+      const from = `from capture ${r.captureId}${r.bodyFrom ? `, body from real error ${r.bodyFrom}` : ""}`;
       return {
         data: r,
-        text: `${r.applied ? "applied" : "dry run (not applied)"}: ${JSON.stringify(r.rule, null, 2)}`,
+        text: `${r.applied ? "applied" : "dry run (not applied)"} (${from}): ${JSON.stringify(r.rule, null, 2)}`,
       };
     },
   }),

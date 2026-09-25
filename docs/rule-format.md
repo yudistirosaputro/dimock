@@ -63,13 +63,19 @@ sequence:                    # per-hit overrides, clamps at the last step
 
 ## Agent-generated variants (`mock_from_capture`)
 
-Given a captured 200, the client derives rules with the same `method` + `path`:
+Given a captured 200, the client derives rules with the same `method` + `path`. Pick the capture by id, or by `path` (the newest real, not mocked, capture matching the glob):
 
 | variant | rule |
 |---|---|
-| `error` | `respond.status: 500`, body `{"error":"internal"}` |
-| `unauthorized` | `respond.status: 401` |
+| `error` | `respond.status: 500`, body of the newest real 4xx/5xx from the same host (same status first), else `{"error":"internal"}` |
+| `unauthorized` | `respond.status: 401`, body chosen the same way (401 first), else `{"error":"unauthorized"}` |
 | `empty` | `respond.status: 200`, body with top-level arrays emptied, envelope keys (`data`, `items`, `results`, `meta`) kept, leaf objects nulled |
 | `slow` | captured response with `delayMs: 3000` |
 | `timeout` | `fail.type: timeout` |
 | `malformed` | `fail.type: malformed_body` |
+
+`status`, `body` or `bodyFile` (CLI: `--status`, `--body`, `--body-file`) replace the status or body of `error`, `unauthorized`, `empty` and `slow`, so an API-specific error needs no hand-written rule:
+
+```bash
+dimock mock from --path /3/discover/movie error --status 401 --body '{"success":false,"status_code":7,"status_message":"Invalid API key"}'
+```

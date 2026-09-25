@@ -74,6 +74,10 @@ export class FakeWire {
       let list = this.transactions;
       const mocked = url.searchParams.get("mocked");
       if (mocked) list = list.filter((t) => String(t.mocked) === mocked);
+      const path = url.searchParams.get("path");
+      if (path) list = list.filter((t) => pathMatches(path, t.path));
+      const method = url.searchParams.get("method");
+      if (method) list = list.filter((t) => t.method.toLowerCase() === method.toLowerCase());
       const limit = Number(url.searchParams.get("limit") ?? 100);
       return json(200, list.slice(0, limit).map(({ requestHeaders: _a, requestBody: _b, responseHeaders: _c, responseBody: _d, ...s }) => s));
     }
@@ -131,4 +135,11 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on("data", (c) => (data += c));
     req.on("end", () => resolve(data));
   });
+}
+
+/** Same path semantics as the device: `re:` regex, else a glob where `**` crosses segments and `*` does not. */
+function pathMatches(pattern: string, path: string): boolean {
+  if (pattern.startsWith("re:")) return new RegExp(pattern.slice(3)).test(path);
+  const source = pattern.replace(/[.+^${}()|[\]\\?]/g, "\\$&").replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\u0000/g, ".*");
+  return new RegExp(`^${source}$`).test(path);
 }

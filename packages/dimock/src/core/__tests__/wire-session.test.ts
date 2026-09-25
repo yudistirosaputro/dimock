@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, beforeEach, test } from "node:test";
 import { Adb, parseDevices } from "../adb.js";
 import { asCurl } from "../curl.js";
@@ -82,10 +85,19 @@ test("asCurl reproduces the request with redacted headers kept redacted", () => 
     requestBody: { kind: "text", text: '{"u":"a"}', contentType: "application/json", totalBytes: 9 },
   });
   const curl = asCurl(tx);
-  assert.match(curl, /^curl -X POST https:\/\/api\.example\.com\/v1\/auth\/login\?x=1/);
+  assert.match(curl, /^curl -X POST 'https:\/\/api\.example\.com\/v1\/auth\/login\?x=1'/);
   assert.match(curl, /-H 'Authorization: «redacted»'/);
   assert.doesNotMatch(curl, /Host:/);
   assert.match(curl, /--data-raw '\{"u":"a"\}'/);
+});
+
+test("asCurl quotes URLs with shell metacharacters so the line pastes into bash and zsh", () => {
+  const withQuery = fake.addTransaction({ id: "q", url: "https://api.themoviedb.org/3/discover/movie?language=en-US&with_genres=%2C12%2C16&page=1", path: "/3/discover/movie" });
+  assert.equal(asCurl(withQuery), "curl -X GET 'https://api.themoviedb.org/3/discover/movie?language=en-US&with_genres=%2C12%2C16&page=1'");
+  const glob = fake.addTransaction({ id: "g", url: "https://api.example.com/files/*", path: "/files/*" });
+  assert.equal(asCurl(glob), "curl -X GET 'https://api.example.com/files/*'");
+  const plain = fake.addTransaction({ id: "p", url: "https://api.example.com/v1/posts", path: "/v1/posts" });
+  assert.equal(asCurl(plain), "curl -X GET https://api.example.com/v1/posts");
 });
 
 // ---- adb + session ------------------------------------------------------------------------------------------
@@ -173,4 +185,59 @@ test("Session with baseUrl skips adb", async () => {
   const health = await session.health();
   assert.equal(health.app, "com.yudistirosaputro.dimock.fake");
   await assert.rejects(session.logcatTail(undefined), /needs a device/);
+});
+
+test("mockFromCapture by path uses the newest real capture of that path", async () => {
+  const session = new Session({ baseUrl, clientName: "test" });
+  fake.addTransaction({ id: "old", path: "/3/discover/movie" });
+  fake.addTransaction({ id: "other", path: "/3/genre/movie/list" });
+  fake.addTransaction({ id: "new", path: "/3/discover/movie" });
+  fake.addTransaction({ id: "served-by-mock", path: "/3/discover/movie", mocked: true });
+  const r = await session.mockFromCapture(undefined, { path: "/3/discover/movie" }, "empty", { dryRun: true });
+  assert.equal(r.captureId, "new");
+  assert.deepEqual(r.rule.match, { method: "GET", path: "/3/discover/movie" });
+  await assert.rejects(session.mockFromCapture(undefined, { path: "/nope" }, "empty"), (e: unknown) => e instanceof DimockError && e.code === "no_capture");
+  await assert.rejects(session.mockFromCapture(undefined, {}, "empty"), (e: unknown) => e instanceof DimockError && e.code === "invalid_input");
+  await assert.rejects(session.mockFromCapture(undefined, { captureId: "new", path: "/x" }, "empty"), /not both/);
+});
+
+test("error and unauthorized reuse the body of a real error from the same host", async () => {
+  const session = new Session({ baseUrl, clientName: "test" });
+  const tmdb = '{"success":false,"status_code":7,"status_message":"Invalid API key: You must be granted a valid key."}';
+  const on = (host: string) => ({ host, url: `https://${host}/3/x` });
+  fake.addTransaction({ id: "other-host-500", ...on("cdn.example.com"), path: "/img", responseCode: 500, responseBody: { kind: "text", text: '{"oops":1}', contentType: "application/json", totalBytes: 10 } });
+  fake.addTransaction({ id: "tmdb-401", ...on("api.themoviedb.org"), path: "/3/account", responseCode: 401, responseBody: { kind: "text", text: tmdb, contentType: "application/json;charset=utf-8", totalBytes: tmdb.length } });
+  fake.addTransaction({ id: "list", ...on("api.themoviedb.org"), path: "/3/discover/movie", responseBody: { kind: "text", text: '{"results":[1]}', contentType: "application/json", totalBytes: 15 } });
+
+  const error = await session.mockFromCapture(undefined, "list", "error", { dryRun: true });
+  assert.equal(error.rule.respond?.status, 500);
+  assert.equal(error.rule.respond?.body, tmdb);
+  assert.equal(error.rule.respond?.headers?.["Content-Type"], "application/json;charset=utf-8");
+  assert.equal(error.bodyFrom, "tmdb-401");
+
+  const unauthorized = await session.mockFromCapture(undefined, "list", "unauthorized", { dryRun: true });
+  assert.equal(unauthorized.rule.respond?.status, 401);
+  assert.equal(unauthorized.rule.respond?.body, tmdb);
+
+  const explicit = await session.mockFromCapture(undefined, "list", "error", { dryRun: true, status: 422, body: '{"e":1}' });
+  assert.equal(explicit.rule.respond?.status, 422);
+  assert.equal(explicit.rule.respond?.body, '{"e":1}');
+  assert.equal(explicit.bodyFrom, undefined);
+
+  fake.transactions.length = 0;
+  fake.addTransaction({ id: "alone", path: "/v1/a" });
+  const generic = await session.mockFromCapture(undefined, "alone", "error", { dryRun: true });
+  assert.equal(generic.rule.respond?.body, '{"error":"internal"}');
+  assert.equal(generic.bodyFrom, undefined);
+});
+
+test("mockFromCapture reads bodyFile", async () => {
+  const session = new Session({ baseUrl, clientName: "test" });
+  const dir = await mkdtemp(join(tmpdir(), "dimock-body-"));
+  await writeFile(join(dir, "err.json"), '{"status_message":"from file"}');
+  fake.addTransaction({ id: "cap", path: "/v1/a" });
+  const r = await session.mockFromCapture(undefined, "cap", "error", { dryRun: true, bodyFile: join(dir, "err.json") });
+  assert.equal(r.rule.respond?.body, '{"status_message":"from file"}');
+  await assert.rejects(session.mockFromCapture(undefined, "cap", "error", { body: "x", bodyFile: join(dir, "err.json") }), /body or bodyFile/);
+  await assert.rejects(session.mockFromCapture(undefined, "cap", "error", { bodyFile: join(dir, "missing.json") }), /body file not found/);
 });

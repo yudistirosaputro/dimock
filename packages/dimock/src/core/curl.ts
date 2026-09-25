@@ -15,7 +15,8 @@ export function asCurl(tx: Transaction): string {
   return parts.join(" ");
 }
 
+/** Leaves only characters no shell treats specially unquoted: `?`, `*` glob and `&` backgrounds. */
 function shellQuote(s: string): string {
-  if (/^[A-Za-z0-9_\-./:=@?&%+,]+$/.test(s)) return s;
+  if (/^[A-Za-z0-9_\-./:=@%+,]+$/.test(s)) return s;
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }

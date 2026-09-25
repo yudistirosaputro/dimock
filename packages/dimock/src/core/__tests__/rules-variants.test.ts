@@ -81,6 +81,17 @@ test("ruleFromCapture targets method+path and shapes each variant", () => {
   assert.throws(() => ruleFromCapture(captured, "weird" as never), /unknown variant/);
 });
 
+test("ruleFromCapture takes status and body overrides for response variants", () => {
+  const error = ruleFromCapture(captured, "error", { status: 422, body: '{"success":false}', contentType: "application/problem+json" });
+  assert.equal(error.respond?.status, 422);
+  assert.equal(error.respond?.body, '{"success":false}');
+  assert.equal(error.respond?.headers?.["Content-Type"], "application/problem+json");
+  assert.equal(ruleFromCapture(captured, "empty", { status: 206 }).respond?.status, 206);
+  assert.equal(ruleFromCapture(captured, "slow", { body: "[]" }).respond?.body, "[]");
+  assert.throws(() => ruleFromCapture(captured, "timeout", { status: 500 }), /status and body apply to error, unauthorized, empty, slow/);
+  assert.throws(() => ruleFromCapture(captured, "error", { status: 99 }), /status: must be 100\.\.599/);
+});
+
 test("emptyBody heuristics", () => {
   assert.equal(emptyBody('[{"a":1}]'), "[]");
   assert.equal(emptyBody(undefined), "[]");

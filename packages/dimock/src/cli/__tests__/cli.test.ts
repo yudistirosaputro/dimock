@@ -61,6 +61,42 @@ test("cli: errors go to stderr with exit code 1, and --json wraps them", async (
   assert.equal(JSON.parse(j.stderr).error, "not_found");
 });
 
+test("cli: connect prints the export line only with --print-env", async () => {
+  const plain = await cli("connect");
+  assert.equal(plain.code, 0);
+  assert.match(plain.stdout, /com\.yudistirosaputro\.dimock\.fake/);
+  assert.doesNotMatch(plain.stdout, /export DIMOCK_BASE_URL/);
+  const env = await cli("connect", "--print-env");
+  assert.match(env.stdout, new RegExp(`^export DIMOCK_BASE_URL=${baseUrl}$`, "m"));
+});
+
+test("cli: mock add and mock set --help describe the rule format", async () => {
+  for (const cmd of ["add", "set"]) {
+    const help = await cli("mock", cmd, "--help");
+    assert.match(help.stdout, /YAML or JSON/);
+    assert.match(help.stdout, /docs\/rule-format\.md/);
+    assert.match(help.stdout, /respond: \{ status: /);
+  }
+});
+
+test("cli: mock from --path picks the newest capture; --status and --body adjust the variant", async () => {
+  fake.transactions.length = 0;
+  fake.addTransaction({ id: "older", path: "/3/discover/movie" });
+  fake.addTransaction({ id: "newest", path: "/3/discover/movie" });
+  const byPath = await cli("--json", "mock", "from", "--path", "/3/discover/movie", "empty", "--dry-run");
+  assert.equal(byPath.code, 0, byPath.stderr);
+  assert.equal(JSON.parse(byPath.stdout).captureId, "newest");
+
+  const custom = await cli("--json", "mock", "from", "newest", "error", "--status", "401", "--body", '{"status_code":7}', "--dry-run");
+  const rule = JSON.parse(custom.stdout).rule;
+  assert.equal(rule.respond.status, 401);
+  assert.equal(rule.respond.body, '{"status_code":7}');
+
+  const neither = await cli("mock", "from", "error");
+  assert.equal(neither.code, 1);
+  assert.match(neither.stderr, /capture id or --path/);
+});
+
 test("init writes idempotent onboarding files for every agent", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dimock-init-"));
   const first = await writeAgentFiles(dir, "all");

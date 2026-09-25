@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { posix, win32 } from "node:path";
 import { DimockError } from "./types.js";
 
 export interface Device {
@@ -14,19 +17,86 @@ export interface Device {
 /** Runs one adb invocation and returns stdout. Injected in tests. */
 export type Runner = (args: string[], options?: { timeoutMs?: number }) => Promise<string>;
 
+export interface AdbLookup {
+  env: Record<string, string | undefined>;
+  cwd: string;
+  platform: NodeJS.Platform;
+  home: string;
+  exists: (path: string) => boolean;
+  readText: (path: string) => string | undefined;
+}
+
+/**
+ * Where adb lives, in order: `ADB`, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `PATH`, `sdk.dir` in ./local.properties,
+ * then Android Studio's default SDK for the platform. Throws `adb_missing` naming every place it looked.
+ */
+export function locateAdb(l: AdbLookup): string {
+  if (l.env.ADB) return l.env.ADB;
+  const win = l.platform === "win32";
+  const p = win ? win32 : posix;
+  const exe = win ? "adb.exe" : "adb";
+  const fromSdk = (sdk: string) => p.join(sdk, "platform-tools", exe);
+  // Windows env vars are case-insensitive (`Path`, `LocalAppData`).
+  const env = (name: string) => l.env[name] ?? (win ? Object.entries(l.env).find(([k]) => k.toUpperCase() === name)?.[1] : undefined);
+
+  const tried: string[] = [];
+  const candidates: string[] = [];
+  for (const name of ["ANDROID_HOME", "ANDROID_SDK_ROOT"]) {
+    const sdk = env(name);
+    if (sdk) candidates.push(fromSdk(sdk));
+  }
+  for (const dir of (env("PATH") ?? "").split(win ? ";" : ":").filter(Boolean)) candidates.push(p.join(dir, exe));
+  for (const path of candidates) {
+    if (l.exists(path)) return path;
+    tried.push(path);
+  }
+
+  const properties = p.join(l.cwd, "local.properties");
+  const sdkDir = sdkDirFrom(l.readText(properties));
+  tried.push(sdkDir ? `${properties} (sdk.dir=${sdkDir})` : properties);
+  if (sdkDir && l.exists(fromSdk(sdkDir))) return fromSdk(sdkDir);
+
+  const localAppData = env("LOCALAPPDATA");
+  const fallback = win
+    ? fromSdk(p.join(localAppData ?? p.join(l.home, "AppData", "Local"), "Android", "Sdk"))
+    : fromSdk(l.platform === "darwin" ? p.join(l.home, "Library", "Android", "sdk") : p.join(l.home, "Android", "Sdk"));
+  if (l.exists(fallback)) return fallback;
+  tried.push(fallback);
+
+  throw new DimockError(
+    `adb not found. Looked in:\n${tried.map((t) => `  ${t}`).join("\n")}\nInstall Android platform-tools, put adb on PATH, set ANDROID_HOME, or set ADB=/path/to/adb.`,
+    "adb_missing",
+  );
+}
+
+/** `sdk.dir` from a local.properties text, with Java properties escaping (`C\:\\Users`) undone. */
+function sdkDirFrom(text: string | undefined): string | undefined {
+  const line = text?.split(/\r?\n/).find((l) => /^\s*sdk\.dir\s*[=:]/.test(l));
+  if (!line) return undefined;
+  return line.replace(/^\s*sdk\.dir\s*[=:]\s*/, "").trim().replace(/\\(.)/g, "$1") || undefined;
+}
+
+let adbPath: string | undefined;
+
 export const defaultRunner: Runner = (args, options) =>
   new Promise((resolvePromise, reject) => {
-    const bin = process.env.ADB ?? (process.env.ANDROID_HOME ? `${process.env.ANDROID_HOME}/platform-tools/adb` : "adb");
-    execFile(bin, args, { timeout: options?.timeoutMs ?? 15_000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+    try {
+      adbPath ??= locateAdb({
+        env: process.env,
+        cwd: process.cwd(),
+        platform: process.platform,
+        home: homedir(),
+        exists: (path) => existsSync(path),
+        readText: (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined),
+      });
+    } catch (e) {
+      return reject(e);
+    }
+    execFile(adbPath, args, { timeout: options?.timeoutMs ?? 15_000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         const code = (err as NodeJS.ErrnoException).code;
         if (code === "ENOENT") {
-          return reject(
-            new DimockError(
-              "adb not found. Install Android platform-tools and put adb on PATH, or set ANDROID_HOME (or ADB=/path/to/adb).",
-              "adb_missing",
-            ),
-          );
+          return reject(new DimockError(`adb not found at ${adbPath}. Fix ADB=/path/to/adb, or unset it to search PATH and the Android SDK.`, "adb_missing"));
         }
         return reject(new DimockError(`adb ${args.join(" ")} failed: ${stderr.trim() || err.message}`, "adb_failed"));
       }

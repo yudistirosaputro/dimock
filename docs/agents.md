@@ -34,7 +34,7 @@ You get the `dimock` MCP server (started with `npx -y dimock mcp`) and the `/dim
 | `mock_add` | `dimock mock add <file>` | upsert one rule |
 | `mock_toggle` | `dimock mock on/off/reset <id>` | |
 | `mock_clear` | `dimock mock clear [id]` | |
-| `mock_from_capture` | `dimock mock from <id> <variant>` | derive `error`, `unauthorized`, `empty`, `slow`, `timeout`, `malformed` |
+| `mock_from_capture` | `dimock mock from <id> <variant>` or `dimock mock from --path <glob> <variant>` | derive `error`, `unauthorized`, `empty`, `slow`, `timeout`, `malformed`; `--status`, `--body`, `--body-file` adjust the response |
 | `logcat_tail` | `dimock logcat -g <regex>` | app's logcat by pid |
 | `agent_activity` | `dimock activity` | what clients read or changed |
 | (stream) | `dimock watch` | live events |
@@ -45,4 +45,4 @@ Every tool accepts `device`, `app`, `port`, `baseUrl`. With one device and one d
 
 - `DIMOCK_BASE_URL`: skip adb and talk to this URL (a port you forwarded yourself, or the JVM dev server).
 - `DIMOCK_PORTS`: extra device ports to probe besides 6767.
-- `ADB` or `ANDROID_HOME`: where to find adb when it is not on PATH.
+- adb is found through `ADB`, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `PATH`, `sdk.dir` in `./local.properties`, then Android Studio's default SDK (`~/Library/Android/sdk`, `~/Android/Sdk`, `%LOCALAPPDATA%\Android\Sdk`).
