@@ -122,7 +122,7 @@ fun SampleScreen(viewModel: PostsViewModel = viewModel()) {
             HorizontalDivider()
             when (val s = state) {
                 UiState.Loading -> CircularProgressIndicator()
-                UiState.Empty -> Text("No posts. (Empty state — try Mock this → Empty on GET /posts)")
+                UiState.Empty -> Text("No posts. (Empty state — Mock this → Custom response with body [], or `npx dimock mock from --path /posts empty`)")
                 is UiState.Error -> Text(s.message, color = MaterialTheme.colorScheme.error)
                 is UiState.Posts -> PostList(s.posts, onOpen = viewModel::open, onDelete = viewModel::delete)
                 is UiState.Detail -> PostDetail(s, onBack = viewModel::loadPosts)
